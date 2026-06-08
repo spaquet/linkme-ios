@@ -114,6 +114,64 @@ struct WelcomeView: View {
     }
 }
 
+// MARK: - Wave Animation
+struct WaveAnimationView: View {
+    @State private var animationPhase: CGFloat = 0
+    @State private var timer: Timer?
+
+    let baseHeights: [CGFloat] = [40, 30, 35, 28, 38, 25, 32, 29, 36, 27, 34, 31, 33, 26, 39, 24, 37, 28, 35, 30, 38, 25]
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 4) {
+            ForEach(0..<22, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 4, height: baseHeights[i] * barScale(for: i))
+            }
+        }
+        .onAppear {
+            startAnimation()
+        }
+        .onDisappear {
+            stopAnimation()
+        }
+    }
+
+    private func startAnimation() {
+        timer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
+            animationPhase += 0.016 / 4
+            if animationPhase > 1 {
+                animationPhase = 0
+            }
+        }
+    }
+
+    private func stopAnimation() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func barScale(for index: Int) -> CGFloat {
+        let duration = 0.7 + CGFloat(index % 4) * 0.1
+        let delay = CGFloat(index) * 0.05
+        let phase = (animationPhase * 4 - delay).truncatingRemainder(dividingBy: duration)
+        let progress = phase / duration
+
+        // Wave effect: scale from min to max and back
+        let minScale = 0.3
+        let maxScale = 1.0
+        let scale = minScale + (maxScale - minScale) * (0.5 + 0.5 * sin(progress * .pi * 2 - .pi / 2))
+
+        return max(0.3, min(1.0, scale))
+    }
+}
+
 // MARK: - Slide 2: Magic Moment
 struct MagicMomentView: View {
     @State private var isRecording = false
@@ -213,20 +271,8 @@ struct MagicMomentView: View {
                 VStack(spacing: 0) {
                     // Wave or instruction text (conditional)
                     if isRecording {
-                        HStack(spacing: 4) {
-                            ForEach(0..<22, id: \.self) { i in
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(
-                                        LinearGradient(
-                                            gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        )
-                                    )
-                                    .frame(width: 4, height: CGFloat([40, 30, 35, 28, 38, 25, 32, 29, 36, 27, 34, 31, 33, 26, 39, 24, 37, 28, 35, 30, 38, 25][i]))
-                            }
-                        }
-                        .frame(height: 56)
+                        WaveAnimationView()
+                            .frame(height: 56)
                     } else {
                         Text("You just met someone. Tap and say one sentence about them.")
                             .font(.system(size: 15, design: .default))
@@ -318,34 +364,64 @@ struct RecallView: View {
                         .padding(15)
                         .background(LinkMeColors.t500)
 
-                        HStack(spacing: 12) {
+                        HStack(alignment: .center, spacing: 12) {
                             Avatar(name: "Marcus Chen", size: 44)
 
                             Text("Lead with the **fund close**. He owes you the memo; you offered an intro.")
-                                .font(.system(size: 14, design: .default))
+                                .font(.system(size: 13, design: .default))
                                 .foregroundColor(LinkMeColors.s700)
-                                .lineLimit(2)
+                                .lineSpacing(2)
                         }
-                        .padding(16)
+                        .padding(14)
+                        .padding(.vertical, 2)
                     }
                 }
 
-                HStack(spacing: 10) {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                HStack(alignment: .center, spacing: 10) {
+                    // Shield icon in teal box
+                    Image(systemName: "checkmark.shield")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(LinkMeColors.t700)
-                        .frame(width: 34, height: 34, alignment: .center)
+                        .frame(width: 34, height: 34)
                         .background(LinkMeColors.t50)
                         .cornerRadius(11)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 11)
+                                .stroke(LinkMeColors.t200, lineWidth: 1)
+                        )
 
+                    // Text
                     Text("Capture, briefings and your whole graph stay on this device.")
                         .font(.system(size: 13, design: .default))
                         .foregroundColor(LinkMeColors.s600)
-                        .lineLimit(2)
+                        .lineSpacing(1)
 
-                    OnDeviceChip()
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    // On this device chip
+                    Spacer()
+                        .frame(maxWidth: 1)
+
+                    HStack(spacing: 5) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("On this device")
+                            .font(.system(size: 10, weight: .semibold, design: .default))
+                    }
+                    .foregroundColor(LinkMeColors.t700)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .background(LinkMeColors.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(LinkMeColors.t500, lineWidth: 1)
+                    )
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(LinkMeColors.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(LinkMeColors.s200, lineWidth: 1)
+                )
             }
 
             Spacer()
