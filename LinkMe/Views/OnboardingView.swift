@@ -1,5 +1,62 @@
 import SwiftUI
 
+// Custom email input to control placeholder color
+struct EmailInput: UIViewRepresentable {
+    @Binding var text: String
+    var isFocused: Bool
+    var onFocus: () -> Void
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.text = text
+        field.keyboardType = .emailAddress
+        field.textContentType = .emailAddress
+        field.autocorrectionType = .no
+        field.borderStyle = .none
+        field.backgroundColor = .clear
+        field.font = .systemFont(ofSize: 15)
+        field.textColor = UIColor(LinkMeColors.ink)
+        field.tintColor = UIColor(LinkMeColors.s500)
+
+        let placeholderColor = UIColor(LinkMeColors.s500)
+        field.attributedPlaceholder = NSAttributedString(
+            string: "you@company.com",
+            attributes: [.foregroundColor: placeholderColor]
+        )
+
+        field.delegate = context.coordinator
+        return field
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        uiView.text = text
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, onFocus: onFocus)
+    }
+
+    class Coordinator: NSObject, UITextFieldDelegate {
+        @Binding var text: String
+        var onFocus: () -> Void
+
+        init(text: Binding<String>, onFocus: @escaping () -> Void) {
+            self._text = text
+            self.onFocus = onFocus
+        }
+
+        func textFieldDidBeginEditing(_ UITextField: UITextField) {
+            onFocus()
+        }
+
+        func textField(_ UITextField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let newText = (UITextField.text as NSString?)?.replacingCharacters(in: range, with: string) ?? string
+            self.text = newText
+            return false
+        }
+    }
+}
+
 struct OnboardingView: View {
     var onDone: () -> Void
     @State private var currentSlide = 0
@@ -72,7 +129,8 @@ struct OnboardingView: View {
                         .foregroundColor(LinkMeColors.t700)
                     }
                 }
-                .padding(22)
+                .padding(.horizontal, 22)
+                .padding(.top, 14)
                 .padding(.bottom, LinkMeLayout.homeInset + 14)
             }
         }
@@ -436,6 +494,7 @@ struct CreateCardView: View {
     @State private var company = ""
     @State private var tagline = ""
     @State private var email = ""
+    @State private var focusedField: String?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -457,7 +516,9 @@ struct CreateCardView: View {
                     // Live preview
                     Card(padding: 0) {
                         VStack(spacing: 0) {
-                            HStack(alignment: .top) {
+                            HStack(alignment: .center, spacing: 6) {
+                                Spacer()
+
                                 Image(systemName: "arrow.triangle.2.circlepath")
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(.white)
@@ -467,8 +528,6 @@ struct CreateCardView: View {
                                     .font(.system(size: 10.5, weight: .semibold, design: .default))
                                     .foregroundColor(.white)
                                     .opacity(0.9)
-
-                                Spacer()
                             }
                             .padding(10)
                             .background(LinearGradient(
@@ -502,25 +561,144 @@ struct CreateCardView: View {
 
                     // Form fields
                     VStack(spacing: 11) {
-                        TextField("Your name", text: $name)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(4)
+                        // Full name
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("FULL NAME")
+                                .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                .foregroundColor(LinkMeColors.s400)
+                                .tracking(0.04)
 
-                        HStack(spacing: 11) {
-                            TextField("Founder & CEO", text: $role)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("Company", text: $company)
-                                .textFieldStyle(.roundedBorder)
+                            TextField("Your name", text: $name)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 15, design: .default))
+                                .foregroundColor(LinkMeColors.ink)
+                                .accentColor(LinkMeColors.s500)
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 12)
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == "name" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
+                                .onTapGesture {
+                                    focusedField = "name"
+                                }
                         }
 
-                        TextField("What you're building", text: $tagline)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(4)
+                        // Role & Company (2 columns)
+                        HStack(spacing: 11) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("ROLE")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
 
-                        TextField("you@company.com", text: $email)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(4)
+                                TextField("Founder & CEO", text: $role)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 15, design: .default))
+                                    .foregroundColor(LinkMeColors.ink)
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 12)
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == "role" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
+                                    .onTapGesture {
+                                        focusedField = "role"
+                                    }
+                            }
+
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("COMPANY")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
+
+                                TextField("Company", text: $company)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 15, design: .default))
+                                    .foregroundColor(LinkMeColors.ink)
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 12)
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == "company" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
+                                    .onTapGesture {
+                                        focusedField = "company"
+                                    }
+                            }
+                        }
+
+                        // Tagline
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("ONE LINE ABOUT YOU")
+                                .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                .foregroundColor(LinkMeColors.s400)
+                                .tracking(0.04)
+
+                            TextField("What you're building", text: $tagline)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 15, design: .default))
+                                .foregroundColor(LinkMeColors.ink)
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 12)
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == "tagline" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
+                                .onTapGesture {
+                                    focusedField = "tagline"
+                                }
+                        }
+
+                        // Email
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("EMAIL")
+                                .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                .foregroundColor(LinkMeColors.s400)
+                                .tracking(0.04)
+
+                            EmailInput(text: $email, isFocused: focusedField == "email") {
+                                focusedField = "email"
+                            }
+                            .frame(height: 46)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 12)
+                            .background(LinkMeColors.surface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(focusedField == "email" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                            )
+                        }
                     }
+
+                    // Bottom info card
+                    HStack(alignment: .center, spacing: 9) {
+                        Image(systemName: "checkmark.shield")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(LinkMeColors.t700)
+
+                        Text("This is the card people receive when you share back. You control it — and it stays current automatically.")
+                            .font(.system(size: 12.5, design: .default))
+                            .foregroundColor(LinkMeColors.s600)
+                            .lineSpacing(1.45)
+
+                        Spacer()
+                    }
+                    .padding(13)
+                    .background(LinkMeColors.t50)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 13)
+                            .stroke(LinkMeColors.t200, lineWidth: 1)
+                    )
                 }
                 .padding(.horizontal, 16)
             }
