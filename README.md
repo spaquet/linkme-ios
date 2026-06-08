@@ -25,15 +25,15 @@ A relationship operating system for founders, investors, and C-suite operators. 
 ```
 LinkMe/
 ├── LinkMeApp.swift           # App entry point
-├── ContentView.swift         # Root navigation
-├── Screens/                  # Feature screens
-│   ├── OnboardingScreen.swift
-│   ├── TodayScreen.swift
-│   ├── CaptureScreen.swift
-│   ├── PersonScreen.swift
-│   ├── BriefingScreen.swift
-│   ├── FollowUpScreen.swift
-│   └── ShareBackScreen.swift
+├── RootView.swift            # Root navigation
+├── Views/                    # Feature views
+│   ├── OnboardingView.swift
+│   ├── TodayView.swift
+│   ├── CaptureView.swift
+│   ├── PersonView.swift
+│   ├── BriefingView.swift
+│   ├── FollowUpView.swift
+│   └── ShareBackView.swift
 ├── Components/               # Reusable UI (Avatar, Card, Button, etc)
 ├── Models/                   # Data models
 ├── Database/                 # SQLite layer
@@ -57,15 +57,9 @@ Design prototype: `./design/` (React, for reference only — recreate pixel-perf
 ## Development Guide
 
 See `CLAUDE.md` for:
-- Detailed screen specs and flows
+- Detailed view specs and flows
 - Data model schema
 - Design tokens (colors, shadows, typography)
 - Development phase strategy
 - Notes on privacy-first design and on-device AI
 
-## Next Steps
-
-1. Build onboarding flow (4 slides, magic moment first)
-2. Implement data model + SQLite abstraction
-3. Build Today screen (briefing-forward home)
-4. Voice capture + on-device AI extraction

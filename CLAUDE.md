@@ -39,7 +39,7 @@ LinkMe is a relationship operating system for high-stakes operators (founders, i
 
 **Icons**: SF Symbols only (use `Image(systemName:)` in SwiftUI). 24px base size, 1.75 stroke weight. Key icons: mic, sparkle, wand.and.stars, calendar, clock, person, person.2, share, send, shield, lock, check, chevron.right, plus, bell, x, arrow.up.right, link, phone, mail, building, star, pencil, gift, magnifyingglass, home, etc.
 
-## Screens (v1 MVP)
+## Views (v1 MVP)
 
 ### 1. **Onboarding** (4 slides, <90s, magic moment first)
    - Slide 1: Welcome + brand
@@ -114,13 +114,13 @@ Core entities:
 
 **Phase 1 (Onboarding + Today)**: Build the substrate — single-player capture + recall. No loop yet.
 - Onboarding flow (4 slides, card creation)
-- Today screen (briefing hero moment)
+- Today view (briefing hero moment)
 - Capture flow (voice → AI extraction → card)
 - Data model + SQLite layer
 
 **Phase 2 (Person + Briefing)**: Deep person knowledge.
 - Person detail card + timeline
-- Briefing screen (just-in-time summary)
+- Briefing view (just-in-time summary)
 - Follow-up drafting + sending
 - Siri/App Intents integration
 
@@ -136,7 +136,7 @@ Core entities:
 
 ## Notes
 
-- **Privacy is first-class**: Every screen must have visible on-device/cloud indicator. Consent flows block cloud data.
+- **Privacy is first-class**: Every view must have visible on-device/cloud indicator. Consent flows block cloud data.
 - **Recall is the hero**: Lead UX with briefing moment, not database browser.
 - **Near-zero friction capture**: 10-second voice note + mic button is the core habit. No delays.
 - **Handoff files**: `./design/` has React prototype (JSX screens, design kit, icons). **Recreate pixel-perfectly in SwiftUI**, don't copy structure.
