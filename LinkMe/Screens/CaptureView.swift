@@ -143,12 +143,17 @@ struct CaptureContentView: View {
                 }
             }) {
                 ZStack {
-                    Circle()
-                        .fill(speechManager.isRecording ? LinkMeColors.ink : LinearGradient(
-                            gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
-                            startPoint: .init(x: 0, y: 0),
-                            endPoint: .init(x: 0.5, y: 0.5)
-                        ))
+                    if speechManager.isRecording {
+                        Circle()
+                            .fill(LinkMeColors.ink)
+                    } else {
+                        Circle()
+                            .fill(LinearGradient(
+                                gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
+                                startPoint: .init(x: 0, y: 0),
+                                endPoint: .init(x: 0.5, y: 0.5)
+                            ))
+                    }
 
                     if !speechManager.isRecording {
                         Circle()

@@ -27,7 +27,7 @@ struct TodayView: View {
                                 OnDeviceChip()
                             }
 
-                            UpNextCard()
+                            UpNextCard(navigationManager: navigationManager)
                         }
 
                         // LATER TODAY
@@ -148,6 +148,8 @@ struct TopBar: View {
 
 // MARK: - Up Next Card
 struct UpNextCard: View {
+    let navigationManager: NavigationManager
+
     var body: some View {
         Card(padding: 0) {
             VStack(spacing: 0) {

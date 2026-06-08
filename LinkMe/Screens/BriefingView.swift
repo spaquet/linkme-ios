@@ -204,11 +204,6 @@ struct ThreadItemView: View {
     }
 }
 
-extension Text {
-    func lineHeight(_ height: CGFloat) -> some View {
-        self
-    }
-}
 
 #Preview {
     BriefingView(person: PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"))
