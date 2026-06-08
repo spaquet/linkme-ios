@@ -46,7 +46,7 @@ LinkMe/
 
 Geist typeface, teal as on-device/AI signal, slate ink, soft elevation, generous radii. See `CLAUDE.md` for full design system and color tokens.
 
-Design prototype: `../design/project/` (React, for reference only — recreate pixel-perfectly in SwiftUI).
+Design prototype: `./design/` (React, for reference only — recreate pixel-perfectly in SwiftUI).
 
 ## Getting Started
 

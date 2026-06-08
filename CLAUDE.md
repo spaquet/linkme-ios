@@ -139,17 +139,17 @@ Core entities:
 - **Privacy is first-class**: Every screen must have visible on-device/cloud indicator. Consent flows block cloud data.
 - **Recall is the hero**: Lead UX with briefing moment, not database browser.
 - **Near-zero friction capture**: 10-second voice note + mic button is the core habit. No delays.
-- **Handoff files**: `/linkme/project/` has React prototype (JSX screens, design kit, icons). **Recreate pixel-perfectly in SwiftUI**, don't copy structure.
+- **Handoff files**: `./design/` has React prototype (JSX screens, design kit, icons). **Recreate pixel-perfectly in SwiftUI**, don't copy structure.
 - **Colors + shadows**: Use LM color tokens exactly (see design kit). Shadows have semantic meaning (sm/md/lg/teal).
 - **On-device first**: Foundation Models for extraction/summarization; Siri for hands-free briefing; local SQLite for all data by default.
 
 ## Handoff Design Files
 
-Located at project root: `../design/`
+Located at project root: `./design/`
 
-- `design/project/LinkMe iOS.html` — Main prototype (React)
-- `design/project/app/screens-*.jsx` — 7 screen components
-- `design/project/app/ui.jsx` — UI primitives (Avatar, Chip, Button, Card)
-- `design/project/app/kit.jsx` — Design tokens (LM.c, LM.shadow, LM.font, Icon, Mark)
-- `design/project/app/data.jsx` — Mock data (people, meetings, nudges)
-- `design/project/app/frames/ios-frame.jsx` — iOS device frame + tweaks panel
+- `design/LinkMe iOS.html` — Main prototype (React)
+- `design/app/screens-*.jsx` — 7 screen components
+- `design/app/ui.jsx` — UI primitives (Avatar, Chip, Button, Card)
+- `design/app/kit.jsx` — Design tokens (LM.c, LM.shadow, LM.font, Icon, Mark)
+- `design/app/data.jsx` — Mock data (people, meetings, nudges)
+- `design/app/frames/ios-frame.jsx` — iOS device frame + tweaks panel
