@@ -55,7 +55,7 @@ struct Avatar: View {
         .if(ring) { view in
             view.overlay(
                 RoundedRectangle(cornerRadius: size * 0.32)
-                    .stroke(LinkMeColors.t200, lineWidth: 3)
+                    .strokeBorder(LinkMeColors.t200, lineWidth: 2)
             )
         }
     }

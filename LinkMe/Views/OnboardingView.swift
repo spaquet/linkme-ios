@@ -516,46 +516,52 @@ struct CreateCardView: View {
                     // Live preview
                     Card(padding: 0) {
                         VStack(spacing: 0) {
-                            HStack(alignment: .center, spacing: 6) {
+                            // Gradient header
+                            HStack(spacing: 6) {
                                 Spacer()
-
                                 Image(systemName: "arrow.triangle.2.circlepath")
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(.white)
                                     .opacity(0.9)
-
                                 Text("Always current")
                                     .font(.system(size: 10.5, weight: .semibold, design: .default))
                                     .foregroundColor(.white)
                                     .opacity(0.9)
+                                .padding(.trailing, 12)
                             }
-                            .padding(10)
+                            .frame(height: 52)
+                            .frame(maxWidth: .infinity)
                             .background(LinearGradient(
                                 gradient: Gradient(colors: [LinkMeColors.t500, LinkMeColors.t700]),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
 
-                            VStack(alignment: .leading, spacing: 8) {
-                                Avatar(name: name.isEmpty ? "You" : name, size: 56)
-                                    .padding(.top, -24)
+                            // Content below gradient
+                            VStack(alignment: .leading, spacing: 0) {
+                                Avatar(name: name.isEmpty ? "You" : name, size: 56, tone: "teal", ring: true)
+                                    .padding(.bottom, 8)
 
-                                Text(name.isEmpty ? "Your name" : name)
-                                    .font(.system(size: 18, weight: .semibold, design: .default))
-                                    .foregroundColor(LinkMeColors.ink)
+                                VStack(alignment: .leading, spacing: -2) {
+                                    Text(name.isEmpty ? "Your name" : name)
+                                        .font(.system(size: 18, weight: .semibold, design: .default))
+                                        .foregroundColor(LinkMeColors.ink)
 
-                                Text("\(role.isEmpty ? "Role" : role) · \(company.isEmpty ? "Company" : company)")
-                                    .font(.system(size: 13, design: .default))
-                                    .foregroundColor(LinkMeColors.s500)
-
-                                if !tagline.isEmpty {
-                                    Text(tagline)
+                                    Text("\(role.isEmpty ? "Role" : role) · \(company.isEmpty ? "Company" : company)")
                                         .font(.system(size: 13, design: .default))
-                                        .foregroundColor(LinkMeColors.s600)
-                                        .lineLimit(2)
+                                        .foregroundColor(LinkMeColors.s500)
                                 }
+
+                                Text(tagline.isEmpty ? "One line about you" : tagline)
+                                    .font(.system(size: 13, design: .default))
+                                    .foregroundColor(tagline.isEmpty ? LinkMeColors.s400 : LinkMeColors.s600)
+                                    .lineLimit(2)
+                                    .padding(.top, 7)
                             }
-                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                            .padding(.bottom, 16)
                         }
                     }
 
@@ -669,9 +675,8 @@ struct CreateCardView: View {
                             EmailInput(text: $email, isFocused: focusedField == "email") {
                                 focusedField = "email"
                             }
-                            .frame(height: 46)
                             .padding(.horizontal, 13)
-                            .padding(.vertical, 12)
+                            .frame(height: 46)
                             .background(LinkMeColors.surface)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
