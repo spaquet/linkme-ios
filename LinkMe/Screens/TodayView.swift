@@ -1,14 +1,14 @@
 import SwiftUI
 
-struct ThreadsScreen: View {
+struct TodayView: View {
     var body: some View {
         VStack {
-            Text("Threads")
+            Text("Today")
                 .font(.title)
         }
     }
 }
 
 #Preview {
-    ThreadsScreen()
+    TodayScreen()
 }

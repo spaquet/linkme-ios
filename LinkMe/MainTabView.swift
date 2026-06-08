@@ -5,28 +5,28 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            TodayScreen()
+            TodayView()
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("Today")
                 }
                 .tag(0)
 
-            PeopleScreen()
+            PeopleView()
                 .tabItem {
                     Image(systemName: "person.2.fill")
                     Text("People")
                 }
                 .tag(1)
 
-            ThreadsScreen()
+            ThreadsView()
                 .tabItem {
                     Image(systemName: "bubble.left.and.bubble.right.fill")
                     Text("Threads")
                 }
                 .tag(2)
 
-            PrivacyScreen()
+            PrivacyView()
                 .tabItem {
                     Image(systemName: "lock.fill")
                     Text("Privacy")

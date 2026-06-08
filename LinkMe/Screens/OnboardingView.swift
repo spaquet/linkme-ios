@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct OnboardingScreen: View {
+struct OnboardingView: View {
     var onDone: () -> Void
     @State private var currentSlide = 0
 
@@ -34,13 +34,13 @@ struct OnboardingScreen: View {
                 Group {
                     switch currentSlide {
                     case 0:
-                        WelcomeSlide()
+                        WelcomeView()
                     case 1:
-                        MagicMomentSlide()
+                        MagicMomentView()
                     case 2:
-                        RecallSlide()
+                        RecallView()
                     case 3:
-                        CreateCardSlide()
+                        CreateCardView()
                     default:
                         Text("Unknown slide")
                     }
@@ -78,7 +78,7 @@ struct OnboardingScreen: View {
 }
 
 // MARK: - Slide 1: Welcome
-struct WelcomeSlide: View {
+struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 18) {
             ZStack {
@@ -111,7 +111,7 @@ struct WelcomeSlide: View {
 }
 
 // MARK: - Slide 2: Magic Moment
-struct MagicMomentSlide: View {
+struct MagicMomentView: View {
     @State private var isRecording = false
     @State private var wordCount = 0
 
@@ -189,7 +189,7 @@ struct MagicMomentSlide: View {
 }
 
 // MARK: - Slide 3: Recall
-struct RecallSlide: View {
+struct RecallView: View {
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 14) {
@@ -260,7 +260,7 @@ struct RecallSlide: View {
 }
 
 // MARK: - Slide 4: Create Card
-struct CreateCardSlide: View {
+struct CreateCardView: View {
     @State private var name = ""
     @State private var role = ""
     @State private var company = ""

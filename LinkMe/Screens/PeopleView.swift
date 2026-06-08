@@ -1,14 +1,14 @@
 import SwiftUI
 
-struct PrivacyScreen: View {
+struct PeopleView: View {
     var body: some View {
         VStack {
-            Text("Privacy")
+            Text("People")
                 .font(.title)
         }
     }
 }
 
 #Preview {
-    PrivacyScreen()
+    PeopleScreen()
 }

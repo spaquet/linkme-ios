@@ -8,7 +8,7 @@ struct RootView: View {
             if appState.hasCompletedOnboarding {
                 MainTabView()
             } else {
-                OnboardingScreen(onDone: {
+                OnboardingView(onDone: {
                     appState.hasCompletedOnboarding = true
                 })
             }
