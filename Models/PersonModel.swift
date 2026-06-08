@@ -1,0 +1,105 @@
+import Foundation
+
+struct PersonModel: Identifiable {
+    let id: String
+    var name: String
+    var company: String
+    var role: String
+    var tone: String // teal, slate, amber, indigo, rose, sky
+    var capturedAt: Date
+    var lastContact: Date?
+    var isFavorite: Bool
+    var notes: [String] = []
+    var deletedAt: Date?
+
+    init(id: String = UUID().uuidString, name: String, company: String, role: String) {
+        self.id = id
+        self.name = name
+        self.company = company
+        self.role = role
+        self.tone = "teal"
+        self.capturedAt = Date()
+        self.isFavorite = false
+    }
+}
+
+struct NoteModel: Identifiable {
+    let id: String
+    let personId: String
+    var text: String
+    var transcription: String?
+    var extractedJson: [String: String] = [:]
+    var createdAt: Date
+    var isFollowUp: Bool
+
+    init(personId: String, text: String, transcription: String? = nil) {
+        self.id = UUID().uuidString
+        self.personId = personId
+        self.text = text
+        self.transcription = transcription
+        self.createdAt = Date()
+        self.isFollowUp = false
+    }
+}
+
+struct ContactModel: Identifiable {
+    let id: String
+    let personId: String
+    var type: String // meeting, call, text
+    var timestamp: Date
+    var location: String?
+    var attendees: [String] = []
+
+    init(personId: String, type: String = "meeting") {
+        self.id = UUID().uuidString
+        self.personId = personId
+        self.type = type
+        self.timestamp = Date()
+    }
+}
+
+struct ThreadModel: Identifiable {
+    let id: String
+    let personId: String
+    var prompt: String
+    var status: String // open, closed, snoozed
+    var createdAt: Date
+    var dueAt: Date?
+
+    init(personId: String, prompt: String) {
+        self.id = UUID().uuidString
+        self.personId = personId
+        self.prompt = prompt
+        self.status = "open"
+        self.createdAt = Date()
+    }
+}
+
+struct ShareModel: Identifiable {
+    let id: String
+    let personId: String
+    var token: String
+    var sentAt: Date
+    var openedAt: Date?
+    var claimedByPersonId: String?
+
+    init(personId: String) {
+        self.id = UUID().uuidString
+        self.personId = personId
+        self.token = UUID().uuidString
+        self.sentAt = Date()
+    }
+}
+
+struct RelationshipModel: Identifiable {
+    let id: String
+    let personAId: String
+    let personBId: String
+    var sharedConnectionDate: Date?
+
+    init(personAId: String, personBId: String) {
+        self.id = UUID().uuidString
+        self.personAId = personAId
+        self.personBId = personBId
+    }
+}
