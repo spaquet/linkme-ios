@@ -52,7 +52,7 @@ struct OnboardingView: View {
                 // Button footer
                 VStack(spacing: 12) {
                     PrimaryButton(
-                        currentSlide == 3 ? "Enter LinkMe" : (currentSlide == 0 ? "Get started" : "Continue"),
+                        currentSlide == 3 ? "Enter LinkMe" : (currentSlide == 0 ? "Get started" : (currentSlide == 2 ? "Set up my card" : "Continue")),
                         tone: .ink
                     ) {
                         if currentSlide < 3 {
