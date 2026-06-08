@@ -529,7 +529,7 @@ struct CreateCardView: View {
                                     .opacity(0.9)
                                 .padding(.trailing, 12)
                             }
-                            .frame(height: 52)
+                            .frame(height: 44)
                             .frame(maxWidth: .infinity)
                             .background(LinearGradient(
                                 gradient: Gradient(colors: [LinkMeColors.t500, LinkMeColors.t700]),
