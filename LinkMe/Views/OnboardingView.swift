@@ -365,15 +365,12 @@ struct RecallView: View {
                         .background(LinkMeColors.t500)
 
                         HStack(alignment: .center, spacing: 12) {
-                            Avatar(name: "Marcus Chen", size: 44)
+                            Avatar(name: "Marcus Chen", size: 44, tone: "teal")
 
-                            Text("Lead with the **fund close**. He owes you the memo; you offered an intro.")
-                                .font(.system(size: 13, design: .default))
-                                .foregroundColor(LinkMeColors.s700)
-                                .lineSpacing(2)
+                            BriefingPreviewText()
                         }
-                        .padding(14)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                     }
                 }
 
