@@ -7,7 +7,7 @@ struct LinkMeColors {
     static let s800 = Color(#colorLiteral(red: 0.12, green: 0.16, blue: 0.22, alpha: 1)) // #1f2937
     static let s700 = Color(#colorLiteral(red: 0.22, green: 0.25, blue: 0.32, alpha: 1)) // #374151
     static let s600 = Color(#colorLiteral(red: 0.29, green: 0.33, blue: 0.39, alpha: 1)) // #4b5563
-    static let s500 = Color(#colorLiteral(red: 0.42, green: 0.64, blue: 0.5, alpha: 1)) // #6b7280
+    static let s500 = Color(#colorLiteral(red: 0.42, green: 0.45, blue: 0.50, alpha: 1)) // #6b7280
     static let s400 = Color(#colorLiteral(red: 0.61, green: 0.64, blue: 0.69, alpha: 1)) // #9ca3af
     static let s300 = Color(#colorLiteral(red: 0.82, green: 0.84, blue: 0.86, alpha: 1)) // #d1d5db
     static let s200 = Color(#colorLiteral(red: 0.90, green: 0.91, blue: 0.92, alpha: 1)) // #e5e7eb

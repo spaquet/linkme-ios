@@ -21,7 +21,9 @@ struct OnboardingView: View {
                     Spacer()
                     if currentSlide < 3 {
                         Button("Skip") {
-                            onDone()
+                            withAnimation {
+                                currentSlide = 3
+                            }
                         }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(LinkMeColors.s500)
@@ -102,6 +104,7 @@ struct WelcomeView: View {
                     .font(.system(size: 16.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
                     .lineLimit(3)
+                    .multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -127,6 +130,7 @@ struct MagicMomentView: View {
                     .font(.system(size: 15.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
                     .lineLimit(3)
+                    .multilineTextAlignment(.center)
             }
 
             VStack(spacing: 20) {
@@ -207,6 +211,7 @@ struct RecallView: View {
                     .font(.system(size: 15.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
                     .lineLimit(3)
+                    .multilineTextAlignment(.center)
             }
 
             VStack(spacing: 14) {
@@ -284,6 +289,7 @@ struct CreateCardView: View {
                     .font(.system(size: 15.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
                     .lineLimit(3)
+                    .multilineTextAlignment(.center)
             }
 
             ScrollView {
