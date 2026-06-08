@@ -83,22 +83,23 @@ struct OnboardingView: View {
 struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 18) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 26)
-                    .fill(LinkMeColors.surface)
-                    .stroke(LinkMeColors.s200, lineWidth: 1)
-                    .frame(width: 84, height: 84)
-
-                Image(systemName: "network")
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundColor(LinkMeColors.t500)
-            }
+            Image("AppLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 84, height: 84)
 
             VStack(spacing: 12) {
-                Text("LinkMe")
-                    .font(.system(size: 30, weight: .semibold, design: .default))
-                    .tracking(-0.03)
-                    .foregroundColor(LinkMeColors.ink)
+                HStack(spacing: 0) {
+                    Text("Link")
+                        .font(.system(size: 30, weight: .semibold, design: .default))
+                        .tracking(-0.03)
+                        .foregroundColor(LinkMeColors.ink)
+
+                    Text("Me")
+                        .font(.system(size: 30, weight: .semibold, design: .default))
+                        .tracking(-0.03)
+                        .foregroundColor(LinkMeColors.t500)
+                }
 
                 Text("The private memory and instinct of a great connector — in your pocket.")
                     .font(.system(size: 16.5, design: .default))
