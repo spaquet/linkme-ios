@@ -118,9 +118,18 @@ struct WelcomeView: View {
 struct MagicMomentView: View {
     @State private var isRecording = false
     @State private var wordCount = 0
+    @State private var isDone = false
+
+    let fullNote = "Met Marcus Chen, GP at Meridian — closing fund three, wants to see my metrics."
+    let noteWords: [String]
+
+    init() {
+        self.noteWords = fullNote.split(separator: " ").map(String.init)
+    }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 0) {
+            // Title section
             VStack(spacing: 14) {
                 Text("Capture in 10 seconds")
                     .font(.system(size: 26, weight: .semibold, design: .default))
@@ -133,60 +142,120 @@ struct MagicMomentView: View {
                     .lineLimit(3)
                     .multilineTextAlignment(.center)
             }
+            .padding(.bottom, 32)
 
-            VStack(spacing: 20) {
-                // Wave animation placeholder
-                HStack(spacing: 4) {
-                    ForEach(0..<12, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
-                                    startPoint: .top,
-                                    endPoint: .bottom
+            // Content section
+            if isDone {
+                // Result card
+                VStack(spacing: 14) {
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            // Header: Avatar + Name/Title + Badge
+                            HStack(alignment: .top, spacing: 12) {
+                                Avatar(name: "Marcus Chen", size: 44, tone: "teal")
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Marcus Chen")
+                                        .font(.system(size: 16, weight: .semibold, design: .default))
+                                        .foregroundColor(LinkMeColors.ink)
+                                        .lineLimit(1)
+
+                                    Text("General Partner · Meridian Ventures")
+                                        .font(.system(size: 12, design: .default))
+                                        .foregroundColor(LinkMeColors.s500)
+                                        .lineLimit(2)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                HStack(spacing: 5) {
+                                    Image(systemName: "wand.and.stars")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text("On device")
+                                        .font(.system(size: 10, weight: .semibold, design: .default))
+                                }
+                                .foregroundColor(LinkMeColors.t500)
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(LinkMeColors.t500, lineWidth: 1)
                                 )
-                            )
-                            .frame(width: 4, height: CGFloat([40, 30, 35, 28, 38, 25, 32, 29, 36, 27, 34, 31][i]))
-                            .opacity(isRecording ? 1 : 0.25)
+                            }
+                            .padding(16)
+
+                            Divider()
+
+                            // Live context section
+                            VStack(alignment: .center, spacing: 4) {
+                                Text("LIVE CONTEXT")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
+
+                                Text("Closing fund three. Wants to see your metrics.")
+                                    .font(.system(size: 14, design: .default))
+                                    .foregroundColor(LinkMeColors.s700)
+                                    .lineSpacing(1)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(EdgeInsets(top: 13, leading: 6, bottom: 16, trailing: 6))
+                        }
                     }
+
+                    Text("That's the whole thing.")
+                        .font(.system(size: 13.5, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.t700)
                 }
-                .frame(height: 56)
-                .padding(.vertical, 10)
-
-                Text(isRecording ? "Met Marcus Chen, GP at Meridian..." : "Tap to record")
-                    .font(.system(size: 16, design: .default))
-                    .foregroundColor(LinkMeColors.s600)
-                    .frame(height: 48)
-
-                Button(action: {
-                    withAnimation { isRecording.toggle() }
-                }) {
-                    ZStack {
-                        if isRecording {
-                            Circle()
-                                .fill(LinkMeColors.ink)
-                        } else {
-                            Circle()
-                                .fill(LinearGradient(
-                                    gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
-                                    startPoint: .init(x: 0, y: 0),
-                                    endPoint: .init(x: 0.5, y: 0.5)
-                                ))
+                .padding(.horizontal, 22)
+            } else {
+                // Recording/transcription view
+                VStack(spacing: 0) {
+                    // Wave or instruction text (conditional)
+                    if isRecording {
+                        HStack(spacing: 4) {
+                            ForEach(0..<22, id: \.self) { i in
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .frame(width: 4, height: CGFloat([40, 30, 35, 28, 38, 25, 32, 29, 36, 27, 34, 31, 33, 26, 39, 24, 37, 28, 35, 30, 38, 25][i]))
+                            }
                         }
-
-                        if !isRecording {
-                            Circle()
-                                .stroke(LinkMeColors.t400, lineWidth: 2)
-                                .padding(5)
-                                .opacity(0.5)
-                                .scaleEffect(1.4)
-                        }
-
-                        Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                            .font(.system(size: 30, weight: .semibold))
-                            .foregroundColor(.white)
+                        .frame(height: 56)
+                    } else {
+                        Text("You just met someone. Tap and say one sentence about them.")
+                            .font(.system(size: 15, design: .default))
+                            .foregroundColor(LinkMeColors.s400)
+                            .multilineTextAlignment(.center)
+                            .frame(height: 56, alignment: .center)
                     }
-                    .frame(width: 76, height: 76)
+
+                    // Transcription text (only when recording)
+                    if isRecording {
+                        Text(noteWords.prefix(wordCount).joined(separator: " "))
+                            .font(.system(size: 16, design: .default))
+                            .foregroundColor(LinkMeColors.s600)
+                            .lineSpacing(2)
+                            .frame(minHeight: 48, alignment: .center)
+                            .padding(.horizontal, 10)
+                    }
+
+                    Spacer()
+                        .frame(minHeight: 40)
+
+                    // Mic button
+                    RecordButton(isRecording: isRecording) {
+                        if !isRecording {
+                            isRecording = true
+                            wordCount = 0
+                            isDone = false
+                        }
+                    }
                 }
             }
 
@@ -195,6 +264,23 @@ struct MagicMomentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 22)
         .padding(.vertical, 24)
+        .onChange(of: isRecording) { oldValue, newValue in
+            if newValue {
+                // Start word animation (120ms per word)
+                Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { timer in
+                    if wordCount < noteWords.count {
+                        wordCount += 1
+                    } else {
+                        timer.invalidate()
+                        // After all words, wait 650ms then show result
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                            isDone = true
+                            isRecording = false
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
