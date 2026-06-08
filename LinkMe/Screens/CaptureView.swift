@@ -4,6 +4,8 @@ struct CaptureView: View {
     @State private var speechManager = SpeechRecognitionManager()
     @State private var aiManager = AIExtractionManager()
     @State private var isShowingResult = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -51,7 +53,31 @@ struct CaptureView: View {
             }
         }
         .onAppear {
-            speechManager.requestAuthorization { _ in }
+            speechManager.requestAuthorization { authorized in
+                if !authorized {
+                    errorMessage = "Microphone access denied. Enable in Settings > LinkMe > Microphone"
+                    showErrorAlert = true
+                }
+            }
+        }
+        .onChange(of: speechManager.error) { oldValue, newValue in
+            if let error = newValue {
+                errorMessage = error
+                showErrorAlert = true
+                speechManager.error = nil
+            }
+        }
+        .onChange(of: aiManager.error) { oldValue, newValue in
+            if let error = newValue {
+                errorMessage = error
+                showErrorAlert = true
+                aiManager.error = nil
+            }
+        }
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
         }
     }
 }

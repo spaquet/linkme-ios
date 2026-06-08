@@ -174,18 +174,8 @@ struct BriefingView: View {
     }
 
     private func loadBriefingData() {
-        // Load threads and shared connections
-        openThreads = [
-            ThreadModel(personId: person.id, prompt: "Send data-infra memo"),
-            ThreadModel(personId: person.id, prompt: "Share Naomi intro")
-        ]
-
-        sharedConnections = [
-            PersonModel(id: "2", name: "Sarah Johnson", company: "Acme", role: "VP"),
-            PersonModel(id: "3", name: "Alex Rivera", company: "TechStart", role: "CEO"),
-            PersonModel(id: "4", name: "Jamie Lee", company: "Ventures", role: "Partner"),
-            PersonModel(id: "5", name: "Chris Wang", company: "Growth", role: "Dir")
-        ]
+        openThreads = MockDataManager.getThreadsForPerson(person.id)
+        sharedConnections = MockDataManager.getSharedConnections(for: person.id)
     }
 }
 

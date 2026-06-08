@@ -37,7 +37,7 @@ LinkMe is a relationship operating system for high-stakes operators (founders, i
 - Home safe area: 30px
 - Shadows: sm (subtle), md (default), lg (elevation), teal (accent)
 
-**Icons**: 24px SVG, 1.75 stroke, round joins/caps. 50+ icons: mic, sparkle, wand, calendar, clock, users, person, share, send, qr, nfc, shield, lock, check, chevrons, plus, bell, x, arrow, link, phone, mail, building, star, pencil, siri, gift, search, home, thread, dots, edit, handshake, refresh.
+**Icons**: SF Symbols only (use `Image(systemName:)` in SwiftUI). 24px base size, 1.75 stroke weight. Key icons: mic, sparkle, wand.and.stars, calendar, clock, person, person.2, share, send, shield, lock, check, chevron.right, plus, bell, x, arrow.up.right, link, phone, mail, building, star, pencil, gift, magnifyingglass, home, etc.
 
 ## Screens (v1 MVP)
 

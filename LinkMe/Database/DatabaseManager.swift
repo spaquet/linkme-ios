@@ -138,11 +138,11 @@ class DatabaseManager {
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, person.id, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 2, person.name, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 3, person.company, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 4, person.role, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 5, person.tone, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 1, person.id, -1, nil)
+            sqlite3_bind_text(statement, 2, person.name, -1, nil)
+            sqlite3_bind_text(statement, 3, person.company, -1, nil)
+            sqlite3_bind_text(statement, 4, person.role, -1, nil)
+            sqlite3_bind_text(statement, 5, person.tone, -1, nil)
             sqlite3_bind_int64(statement, 6, Int64(person.capturedAt.timeIntervalSince1970))
             sqlite3_bind_int(statement, 7, person.isFavorite ? 1 : 0)
 
@@ -181,10 +181,10 @@ class DatabaseManager {
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, note.id, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 2, note.personId, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 3, note.text, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(statement, 4, note.transcription, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 1, note.id, -1, nil)
+            sqlite3_bind_text(statement, 2, note.personId, -1, nil)
+            sqlite3_bind_text(statement, 3, note.text, -1, nil)
+            sqlite3_bind_text(statement, 4, note.transcription, -1, nil)
             sqlite3_bind_int64(statement, 5, Int64(note.createdAt.timeIntervalSince1970))
             sqlite3_bind_int(statement, 6, note.isFollowUp ? 1 : 0)
 
@@ -201,7 +201,7 @@ class DatabaseManager {
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, personId, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 1, personId, -1, nil)
 
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = String(cString: sqlite3_column_text(statement, 0))
@@ -209,8 +209,7 @@ class DatabaseManager {
                 let text = String(cString: sqlite3_column_text(statement, 2))
                 let transcription = sqlite3_column_text(statement, 3).map { String(cString: $0) }
 
-                var note = NoteModel(personId: pId, text: text, transcription: transcription)
-                note.id = id
+                let note = NoteModel(id: id, personId: pId, text: text, transcription: transcription)
                 notes.append(note)
             }
         }

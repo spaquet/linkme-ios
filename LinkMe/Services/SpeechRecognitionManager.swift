@@ -14,9 +14,18 @@ class SpeechRecognitionManager {
     private let audioEngine = AVAudioEngine()
 
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
-            DispatchQueue.main.async {
-                completion(status == .authorized)
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
+            guard granted else {
+                DispatchQueue.main.async {
+                    completion(false)
+                }
+                return
+            }
+
+            SFSpeechRecognizer.requestAuthorization { status in
+                DispatchQueue.main.async {
+                    completion(status == .authorized)
+                }
             }
         }
     }
@@ -51,7 +60,7 @@ class SpeechRecognitionManager {
                 }
             }
 
-            let recordingFormat = inputNode.outputFormat(forBus: 0)!
+            let recordingFormat = inputNode.outputFormat(forBus: 0)
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
                 self?.recognitionRequest?.append(buffer)
             }

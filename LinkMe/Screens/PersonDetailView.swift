@@ -136,8 +136,8 @@ struct PersonDetailView: View {
             }
         }
         .onAppear {
-            // Load notes from database
-            notes = DatabaseManager.shared.fetchNotesForPerson(person.id)
+            let dbNotes = DatabaseManager.shared.fetchNotesForPerson(person.id)
+            notes = dbNotes.isEmpty ? MockDataManager.getNotesForPerson(person.id) : dbNotes
         }
     }
 }

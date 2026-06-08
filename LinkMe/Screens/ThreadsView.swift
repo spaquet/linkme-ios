@@ -10,5 +10,5 @@ struct ThreadsView: View {
 }
 
 #Preview {
-    ThreadsScreen()
+    ThreadsView()
 }

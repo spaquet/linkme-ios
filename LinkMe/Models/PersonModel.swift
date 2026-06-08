@@ -1,6 +1,6 @@
 import Foundation
 
-struct PersonModel: Identifiable {
+struct PersonModel: Identifiable, Hashable {
     let id: String
     var name: String
     var company: String
@@ -32,12 +32,12 @@ struct NoteModel: Identifiable {
     var createdAt: Date
     var isFollowUp: Bool
 
-    init(personId: String, text: String, transcription: String? = nil) {
-        self.id = UUID().uuidString
+    init(id: String = UUID().uuidString, personId: String, text: String, transcription: String? = nil, createdAt: Date = Date()) {
+        self.id = id
         self.personId = personId
         self.text = text
         self.transcription = transcription
-        self.createdAt = Date()
+        self.createdAt = createdAt
         self.isFollowUp = false
     }
 }

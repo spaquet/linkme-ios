@@ -1,10 +1,9 @@
 import SwiftUI
 
 struct PeopleView: View {
+    let navigationManager: NavigationManager
     @State private var people: [PersonModel] = []
     @State private var searchText = ""
-    @State private var selectedPerson: PersonModel?
-    @State private var isShowingDetail = false
 
     var filteredPeople: [PersonModel] {
         if searchText.isEmpty {
@@ -27,7 +26,9 @@ struct PeopleView: View {
 
                     Spacer()
 
-                    Button(action: {}) {
+                    Button(action: {
+                        navigationManager.openCapture()
+                    }) {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.t700)
@@ -75,8 +76,7 @@ struct PeopleView: View {
                         VStack(spacing: 1) {
                             ForEach(filteredPeople, id: \.id) { person in
                                 Button(action: {
-                                    selectedPerson = person
-                                    isShowingDetail = true
+                                    navigationManager.openPersonDetail(person)
                                 }) {
                                     HStack(spacing: 12) {
                                         Avatar(name: person.name, size: 44)
@@ -113,17 +113,14 @@ struct PeopleView: View {
                 }
             }
         }
-        .sheet(isPresented: $isShowingDetail) {
-            if let person = selectedPerson {
-                PersonDetailView(person: person)
-            }
-        }
         .onAppear {
-            people = DatabaseManager.shared.fetchPeople()
+            // Load mock data on first launch
+            let dbPeople = DatabaseManager.shared.fetchPeople()
+            people = dbPeople.isEmpty ? MockDataManager.mockPeople : dbPeople
         }
     }
 }
 
 #Preview {
-    PeopleView()
+    PeopleView(navigationManager: NavigationManager())
 }

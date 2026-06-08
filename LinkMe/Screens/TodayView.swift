@@ -1,11 +1,8 @@
 import SwiftUI
 
 struct TodayView: View {
-    @State private var people: [PersonModel] = [
-        PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"),
-        PersonModel(id: "2", name: "Sarah Johnson", company: "Acme Corp", role: "VP Product"),
-        PersonModel(id: "3", name: "Alex Rivera", company: "TechStart", role: "Founder & CEO"),
-    ]
+    let navigationManager: NavigationManager
+    @State private var people: [PersonModel] = MockDataManager.mockPeople
 
     var body: some View {
         ZStack {
@@ -61,7 +58,7 @@ struct TodayView: View {
                                 SectionLabel("Needs you")
                                 Spacer()
                                 Button("All threads") {
-                                    // Navigate to threads
+                                    // Navigate to threads tab
                                 }
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(LinkMeColors.t700)
@@ -200,7 +197,11 @@ struct UpNextCard: View {
                 }
                 .padding(18)
 
-                Button(action: {}) {
+                Button(action: {
+                    if let firstPerson = MockDataManager.mockPeople.first {
+                        navigationManager.openBriefing(firstPerson)
+                    }
+                }) {
                     HStack(spacing: 8) {
                         Image(systemName: "wand.and.stars")
                             .font(.system(size: 18, weight: .semibold))
@@ -303,5 +304,5 @@ extension Text {
 }
 
 #Preview {
-    TodayView()
+    TodayView(navigationManager: NavigationManager())
 }

@@ -10,5 +10,5 @@ struct PrivacyView: View {
 }
 
 #Preview {
-    PrivacyScreen()
+    PrivacyView()
 }
