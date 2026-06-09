@@ -216,44 +216,72 @@ struct PrivacyRow: View {
     let isLocked: Bool
 
     var body: some View {
-        HStack(spacing: 13) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(LinkMeColors.t700)
-                .frame(width: 34, height: 34)
-                .background(LinkMeColors.t50)
-                .cornerRadius(11)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(LinkMeColors.t600)
+                    .frame(width: 40, height: 40)
+                    .background(LinkMeColors.t50)
+                    .cornerRadius(12)
+                    .border(LinkMeColors.t200, width: 1.5)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 7) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold, design: .default))
-                        .foregroundColor(LinkMeColors.ink)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.system(size: 16, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
 
-                    if isLocked {
-                        Text("Always")
-                            .font(.system(size: 10.5, weight: .semibold, design: .default))
-                            .foregroundColor(LinkMeColors.t700)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 1)
-                            .background(LinkMeColors.t50)
-                            .cornerRadius(999)
+                        if isLocked {
+                            Text("Always")
+                                .font(.system(size: 11, weight: .semibold, design: .default))
+                                .foregroundColor(LinkMeColors.t700)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(LinkMeColors.t100)
+                                .cornerRadius(999)
+                        }
+
+                        Spacer()
                     }
 
-                    Spacer()
+                    Text(detail)
+                        .font(.system(size: 13.5, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
+                        .lineHeight(1.4)
                 }
 
-                Text(detail)
-                    .font(.system(size: 12.5, design: .default))
-                    .foregroundColor(LinkMeColors.s500)
-                    .lineHeight(1.45)
+                CustomToggle(isOn: $isToggled, isLocked: isLocked)
+                    .frame(width: 50, height: 30)
             }
-
-            Toggle("", isOn: $isToggled)
-                .disabled(isLocked)
-                .opacity(isLocked ? 0.85 : 1)
         }
         .padding(14)
+    }
+}
+
+struct CustomToggle: View {
+    @Binding var isOn: Bool
+    let isLocked: Bool
+
+    var body: some View {
+        Button(action: {
+            if !isLocked {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isOn.toggle()
+                }
+            }
+        }) {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                RoundedRectangle(cornerRadius: 999)
+                    .fill(isOn ? LinkMeColors.t500 : LinkMeColors.s300)
+
+                Circle()
+                    .fill(.white)
+                    .padding(3)
+            }
+        }
+        .disabled(isLocked)
+        .opacity(isLocked ? 0.85 : 1)
     }
 }
 
