@@ -38,7 +38,7 @@ struct PrivacyView: View {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack(spacing: 0) {
-                                        Image(systemName: "checkmark.shield.fill")
+                                        Image(systemName: "checkmark.shield")
                                             .font(.system(size: 24, weight: .semibold))
                                             .foregroundColor(LinkMeColors.t400)
                                             .frame(width: 46, height: 46)
