@@ -3,7 +3,8 @@ import SwiftUI
 // Custom email input to control placeholder color
 struct EmailInput: UIViewRepresentable {
     @Binding var text: String
-    @Binding var isFocused: Bool
+    let isFocused: Bool
+    let onFocusChange: (Bool) -> Void
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
@@ -30,30 +31,24 @@ struct EmailInput: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UITextField, context: Context) {
-        uiView.text = text
-        uiView.returnKeyType = .done
-
         if isFocused && !uiView.isFirstResponder {
-            DispatchQueue.main.async {
-                uiView.becomeFirstResponder()
-                uiView.reloadInputViews()
-            }
+            uiView.becomeFirstResponder()
         } else if !isFocused && uiView.isFirstResponder {
             uiView.resignFirstResponder()
         }
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isFocused: $isFocused)
+        Coordinator(text: $text, onFocusChange: onFocusChange)
     }
 
     class Coordinator: NSObject, UITextFieldDelegate {
         @Binding var text: String
-        @Binding var isFocused: Bool
+        let onFocusChange: (Bool) -> Void
 
-        init(text: Binding<String>, isFocused: Binding<Bool>) {
+        init(text: Binding<String>, onFocusChange: @escaping (Bool) -> Void) {
             self._text = text
-            self._isFocused = isFocused
+            self.onFocusChange = onFocusChange
         }
 
         func textField(_ UITextField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
@@ -64,15 +59,15 @@ struct EmailInput: UIViewRepresentable {
 
         func textFieldDidEndEditing(_ UITextField: UITextField) {
             self.text = UITextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-            self.isFocused = false
+            self.onFocusChange(false)
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
-            self.isFocused = true
+            self.onFocusChange(true)
         }
 
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            self.isFocused = false
+            self.onFocusChange(false)
             textField.resignFirstResponder()
             return true
         }
@@ -801,12 +796,10 @@ struct CreateCardView: View {
 
                             EmailInput(
                                 text: $email,
-                                isFocused: Binding(
-                                    get: { focusedField == .email },
-                                    set: { isFocused in
-                                        focusedField = isFocused ? .email : nil
-                                    }
-                                )
+                                isFocused: focusedField == .email,
+                                onFocusChange: { isFocused in
+                                    focusedField = isFocused ? .email : nil
+                                }
                             )
                                 .padding(.horizontal, 13)
                                 .frame(height: 46)
