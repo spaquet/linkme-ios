@@ -31,9 +31,13 @@ struct EmailInput: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextField, context: Context) {
         uiView.text = text
+        uiView.returnKeyType = .done
 
         if isFocused && !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
+            DispatchQueue.main.async {
+                uiView.becomeFirstResponder()
+                uiView.reloadInputViews()
+            }
         } else if !isFocused && uiView.isFirstResponder {
             uiView.resignFirstResponder()
         }
@@ -68,6 +72,7 @@ struct EmailInput: UIViewRepresentable {
         }
 
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            self.isFocused = false
             textField.resignFirstResponder()
             return true
         }
