@@ -6,32 +6,31 @@ struct MainTabView: View {
     @State private var navigationManager = NavigationManager()
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                TodayView(navigationManager: navigationManager, appState: appState)
-                    .tag(0)
+        NavigationStack(path: $navigationManager.navigationPath) {
+            ZStack(alignment: .bottom) {
+                TabView(selection: $selectedTab) {
+                    TodayView(navigationManager: navigationManager, appState: appState)
+                        .tag(0)
 
-                PeopleView(navigationManager: navigationManager)
-                    .tag(1)
+                    PeopleView(navigationManager: navigationManager)
+                        .tag(1)
 
-                ThreadsView(navigationManager: navigationManager)
-                    .tag(3)
+                    ThreadsView(navigationManager: navigationManager)
+                        .tag(3)
 
-                PrivacyView()
-                    .tag(4)
+                    PrivacyView()
+                        .tag(4)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+
+                CustomTabBar(selectedTab: $selectedTab, navigationManager: navigationManager)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-
-            CustomTabBar(selectedTab: $selectedTab, navigationManager: navigationManager)
-
-            NavigationStack {
-                EmptyView()
-                    .navigationDestination(item: $navigationManager.selectedPerson) { person in
-                        PersonDetailView(person: person)
+            .navigationDestination(item: $navigationManager.selectedPerson) { person in
+                PersonDetailView(person: person, navigationManager: navigationManager)
+                    .navigationDestination(for: PersonModel.self) { person in
+                        PersonDetailView(person: person, navigationManager: navigationManager)
                     }
             }
-            .frame(width: 0, height: 0)
-            .hidden()
         }
         .sheet(isPresented: $navigationManager.showCaptureSheet) {
             CaptureView()

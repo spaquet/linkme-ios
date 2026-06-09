@@ -12,6 +12,14 @@ struct PersonModel: Identifiable, Hashable {
     var notes: [String] = []
     var tags: [String] = []
     var deletedAt: Date?
+    var context: String = ""
+    var openThreads: [String] = []
+    var talkingPoints: [String] = []
+    var personal: String = ""
+    var shared: [String] = []
+    var timeline: [TimelineEntry] = []
+    var location: String = ""
+    var met: String = "Met once"
 
     init(id: String = UUID().uuidString, name: String, company: String, role: String) {
         self.id = id
@@ -22,6 +30,13 @@ struct PersonModel: Identifiable, Hashable {
         self.capturedAt = Date()
         self.isFavorite = false
     }
+}
+
+struct TimelineEntry: Hashable {
+    let kind: String // capture, meet, note
+    let label: String
+    let date: String
+    let detail: String?
 }
 
 struct NoteModel: Identifiable {
