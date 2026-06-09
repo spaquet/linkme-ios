@@ -195,7 +195,7 @@ struct StatItem: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(number)
                 .font(.system(size: 22, weight: .semibold, design: .default))
                 .foregroundColor(.white)
