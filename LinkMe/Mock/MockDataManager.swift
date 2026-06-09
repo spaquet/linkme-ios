@@ -9,6 +9,8 @@ enum MockDataManager {
             PersonModel(id: "4", name: "Jamie Lee", company: "Ventures Inc", role: "Partner"),
             PersonModel(id: "5", name: "Chris Wang", company: "Growth Labs", role: "Director"),
         ]
+
+        // Assign tags and lastContact dates for filter and time formatting testing
         people[0].tags = ["Investor", "Angel"]
         people[0].lastContact = Calendar.current.date(byAdding: .day, value: -5, to: Date())
 

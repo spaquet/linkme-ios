@@ -21,7 +21,7 @@ struct PeopleView: View {
         if years > 0 {
             return "\(years)y"
         } else if months > 0 {
-            // Round up: 11mo 23d → 12mo
+            // Round up at 15 days: 11mo 23d displays as "12mo"
             let totalMonths = months + (days >= 15 ? 1 : 0)
             return "\(totalMonths)mo"
         } else if days > 0 {
@@ -34,21 +34,23 @@ struct PeopleView: View {
     private var filteredPeople: [PersonModel] {
         var result = people
 
-        // Apply tag filter
+        // Filter by selected tag category
         if selectedFilter != "All" {
             result = result.filter { person in
                 if selectedFilter == "Investors" {
+                    // Match both "Investor" and "Angel" variations
                     return person.tags.contains { $0.contains("Investor") || $0.contains("Angel") }
                 } else if selectedFilter == "Founders" {
                     return person.tags.contains("Founder")
                 } else if selectedFilter == "Execs" {
+                    // Match "Exec" and "Buyer" roles
                     return person.tags.contains { $0.contains("Exec") || $0.contains("Buyer") }
                 }
                 return true
             }
         }
 
-        // Apply search filter
+        // Filter by name search
         if searchText.isEmpty {
             return result
         }
