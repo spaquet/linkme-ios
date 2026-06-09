@@ -115,10 +115,10 @@ struct CustomTabBar: View {
                         action: { selectedTab = 4 }
                     )
                 }
-                .frame(height: 70)
-                .padding(.top, 6)
+                .frame(height: 56)
+                .padding(.top, 4)
             }
-            .frame(height: 70 + LinkMeLayout.homeInset)
+            .frame(height: 56 + LinkMeLayout.homeInset)
         }
     }
 }
@@ -131,12 +131,12 @@ struct TabBarItem: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 23, weight: isSelected ? .semibold : .light))
+                    .font(.system(size: 20, weight: isSelected ? .semibold : .light))
 
                 Text(label)
-                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .light, design: .default))
+                    .font(.system(size: 9.5, weight: isSelected ? .semibold : .light, design: .default))
                     .tracking(0.01)
             }
             .frame(maxWidth: .infinity)
