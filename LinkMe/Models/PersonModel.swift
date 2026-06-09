@@ -115,3 +115,21 @@ struct RelationshipModel: Identifiable {
         self.personBId = personBId
     }
 }
+
+struct NudgeModel: Identifiable {
+    let id: String
+    let personId: String
+    var kind: String // signal, promise, followup
+    var title: String
+    var detail: String
+    var cta: String
+
+    init(id: String = UUID().uuidString, personId: String, kind: String, title: String, detail: String, cta: String) {
+        self.id = id
+        self.personId = personId
+        self.kind = kind
+        self.title = title
+        self.detail = detail
+        self.cta = cta
+    }
+}

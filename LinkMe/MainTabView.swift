@@ -14,7 +14,7 @@ struct MainTabView: View {
                 PeopleView(navigationManager: navigationManager)
                     .tag(1)
 
-                ThreadsView()
+                ThreadsView(navigationManager: navigationManager)
                     .tag(3)
 
                 PrivacyView()

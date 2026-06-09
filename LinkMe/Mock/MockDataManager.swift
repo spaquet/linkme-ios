@@ -21,6 +21,12 @@ enum MockDataManager {
         ThreadModel(personId: "2", prompt: "Promised product demo feedback"),
     ]
 
+    static let mockNudges: [NudgeModel] = [
+        NudgeModel(personId: "3", kind: "followup", title: "Follow up with Alex Rivera", detail: "You met 6 days ago and haven't followed up. Reciprocity window is closing.", cta: "Draft follow-up"),
+        NudgeModel(personId: "2", kind: "signal", title: "Sarah Johnson closed a Series A", detail: "Public signal picked up 2 weeks ago. A congrats note compounds the relationship.", cta: "Congratulate"),
+        NudgeModel(personId: "4", kind: "promise", title: "You promised Jamie an intro", detail: "You offered to connect Jamie to Marcus 2 days ago. Marcus is warm to it.", cta: "Make the intro"),
+    ]
+
     static func getSharedConnections(for personId: String) -> [PersonModel] {
         mockPeople.filter { $0.id != personId }
     }
@@ -31,5 +37,9 @@ enum MockDataManager {
 
     static func getThreadsForPerson(_ personId: String) -> [ThreadModel] {
         mockThreads.filter { $0.personId == personId }
+    }
+
+    static func getNudges() -> [NudgeModel] {
+        mockNudges
     }
 }
