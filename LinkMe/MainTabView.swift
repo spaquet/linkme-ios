@@ -1,13 +1,14 @@
 import SwiftUI
 
 struct MainTabView: View {
+    let appState: AppState
     @State private var selectedTab = 0
     @State private var navigationManager = NavigationManager()
 
     var body: some View {
         ZStack {
             TabView(selection: $selectedTab) {
-                TodayView(navigationManager: navigationManager)
+                TodayView(navigationManager: navigationManager, appState: appState)
                     .tabItem {
                         Image(systemName: "house.fill")
                         Text("Today")
@@ -55,5 +56,22 @@ struct MainTabView: View {
 }
 
 #Preview {
-    MainTabView()
+    let appState = AppState()
+    let defaultCard = CardModel(
+        firstName: "Marcus",
+        lastName: "Chen",
+        email: "marcus@meridian.com",
+        role: "General Partner",
+        company: "Meridian Ventures",
+        isDefault: true
+    )
+    appState.currentUser = UserModel(
+        firstName: "Marcus",
+        lastName: "Chen",
+        email: "marcus@meridian.com",
+        role: "General Partner",
+        company: "Meridian Ventures",
+        cards: [defaultCard]
+    )
+    return MainTabView(appState: appState)
 }

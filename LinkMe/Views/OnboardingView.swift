@@ -57,9 +57,11 @@ struct EmailInput: UIViewRepresentable {
 }
 
 struct OnboardingView: View {
+    let appState: AppState
     var onDone: () -> Void
     @State private var currentSlide = 0
-    @State private var name = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
     @State private var role = ""
     @State private var company = ""
     @State private var tagline = ""
@@ -67,7 +69,7 @@ struct OnboardingView: View {
     @FocusState private var focusedField: String?
 
     private var isFormValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !firstName.trimmingCharacters(in: .whitespaces).isEmpty &&
         !email.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
@@ -110,7 +112,8 @@ struct OnboardingView: View {
                         RecallView()
                     case 3:
                         CreateCardView(
-                            name: $name,
+                            firstName: $firstName,
+                            lastName: $lastName,
                             role: $role,
                             company: $company,
                             tagline: $tagline,
@@ -134,6 +137,7 @@ struct OnboardingView: View {
                                 currentSlide += 1
                             }
                         } else {
+                            saveUser()
                             onDone()
                         }
                     }
@@ -152,6 +156,30 @@ struct OnboardingView: View {
                 .padding(.bottom, LinkMeLayout.homeInset + 14)
             }
         }
+    }
+
+    private func saveUser() {
+        let defaultCard = CardModel(
+            firstName: firstName,
+            lastName: lastName.isEmpty ? nil : lastName,
+            email: email,
+            role: role,
+            company: company,
+            tagline: tagline.isEmpty ? nil : tagline,
+            isDefault: true,
+            sharedPublicly: false
+        )
+
+        let user = UserModel(
+            firstName: firstName,
+            lastName: lastName.isEmpty ? nil : lastName,
+            email: email,
+            role: role,
+            company: company,
+            tagline: tagline.isEmpty ? nil : tagline,
+            cards: [defaultCard]
+        )
+        appState.currentUser = user
     }
 }
 
@@ -507,7 +535,8 @@ struct RecallView: View {
 
 // MARK: - Slide 4: Create Card
 struct CreateCardView: View {
-    @Binding var name: String
+    @Binding var firstName: String
+    @Binding var lastName: String
     @Binding var role: String
     @Binding var company: String
     @Binding var tagline: String
@@ -557,11 +586,12 @@ struct CreateCardView: View {
 
                             // Content below gradient
                             VStack(alignment: .leading, spacing: 0) {
-                                Avatar(name: name.isEmpty ? "You" : name, size: 56, tone: "teal", ring: true)
+                                Avatar(firstName: firstName.isEmpty ? "You" : firstName, lastName: lastName.isEmpty ? nil : lastName, size: 56, tone: "teal", ring: true)
                                     .padding(.bottom, 8)
 
                                 VStack(alignment: .leading, spacing: -2) {
-                                    Text(name.isEmpty ? "Your name" : name)
+                                    let displayName = firstName.isEmpty ? "Your name" : (lastName.isEmpty ? firstName : "\(firstName) \(lastName)")
+                                    Text(displayName)
                                         .font(.system(size: 18, weight: .semibold, design: .default))
                                         .foregroundColor(LinkMeColors.ink)
 
@@ -585,31 +615,59 @@ struct CreateCardView: View {
 
                     // Form fields
                     VStack(spacing: 11) {
-                        // Full name
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("FULL NAME")
-                                .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                .foregroundColor(LinkMeColors.s400)
-                                .tracking(0.04)
+                        // First name & Last name (2 columns)
+                        HStack(spacing: 11) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("FIRST NAME")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
 
-                            TextField("Your name", text: $name)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 15, design: .default))
-                                .foregroundColor(LinkMeColors.ink)
-                                .accentColor(LinkMeColors.t500)
-                                .textContentType(.name)
-                                .autocorrectionDisabled()
-                                .focused($focusedField, equals: "name")
-                                .submitLabel(.next)
-                                .onSubmit { focusedField = "role" }
-                                .padding(.horizontal, 13)
-                                .padding(.vertical, 12)
-                                .frame(height: 46)
-                                .background(LinkMeColors.surface)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(focusedField == "name" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                )
+                                TextField("First name", text: $firstName)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 15, design: .default))
+                                    .foregroundColor(LinkMeColors.ink)
+                                    .accentColor(LinkMeColors.t500)
+                                    .textContentType(.givenName)
+                                    .autocorrectionDisabled()
+                                    .focused($focusedField, equals: "firstName")
+                                    .submitLabel(.next)
+                                    .onSubmit { focusedField = "lastName" }
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 12)
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == "firstName" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
+                            }
+
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("LAST NAME")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
+
+                                TextField("Last name", text: $lastName)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 15, design: .default))
+                                    .foregroundColor(LinkMeColors.ink)
+                                    .accentColor(LinkMeColors.t500)
+                                    .textContentType(.familyName)
+                                    .autocorrectionDisabled()
+                                    .focused($focusedField, equals: "lastName")
+                                    .submitLabel(.next)
+                                    .onSubmit { focusedField = "role" }
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 12)
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == "lastName" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
+                            }
                         }
 
                         // Role & Company (2 columns)
@@ -741,5 +799,5 @@ struct CreateCardView: View {
 }
 
 #Preview {
-    OnboardingView(onDone: {})
+    OnboardingView(appState: AppState(), onDone: {})
 }

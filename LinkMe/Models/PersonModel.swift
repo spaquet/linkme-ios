@@ -49,6 +49,10 @@ struct ContactModel: Identifiable {
     var timestamp: Date
     var location: String?
     var attendees: [String] = []
+    var appleContactIdentifier: String?
+    var appleContactMatchKey: String?
+    var lastSyncedAt: Date?
+    var syncChecksum: String?
 
     init(personId: String, type: String = "meeting") {
         self.id = UUID().uuidString
@@ -78,16 +82,24 @@ struct ThreadModel: Identifiable {
 struct ShareModel: Identifiable {
     let id: String
     let personId: String
+    var cardId: String?
     var token: String
     var sentAt: Date
+    var sentTo: String?
     var openedAt: Date?
+    var viewedCount: Int
     var claimedByPersonId: String?
+    var expiresAt: Date?
 
-    init(personId: String) {
+    init(personId: String, cardId: String? = nil, sentTo: String? = nil, expiresAt: Date? = nil) {
         self.id = UUID().uuidString
         self.personId = personId
+        self.cardId = cardId
         self.token = UUID().uuidString
         self.sentAt = Date()
+        self.sentTo = sentTo
+        self.viewedCount = 0
+        self.expiresAt = expiresAt
     }
 }
 

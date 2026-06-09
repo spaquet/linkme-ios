@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayView: View {
     let navigationManager: NavigationManager
+    let appState: AppState
     @State private var people: [PersonModel] = MockDataManager.mockPeople
 
     var body: some View {
@@ -11,7 +12,7 @@ struct TodayView: View {
 
             VStack(spacing: 0) {
                 // TopBar
-                TopBar()
+                TopBar(appState: appState)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .padding(.top, LinkMeLayout.statusBarHeight - 20)
@@ -106,10 +107,31 @@ struct TodayView: View {
 
 // MARK: - TopBar
 struct TopBar: View {
+    let appState: AppState
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let firstName = appState.currentUser?.name.split(separator: " ").first.map(String.init) ?? "there"
+
+        let timeGreeting: String
+        switch hour {
+        case 5..<12:
+            timeGreeting = "Good morning"
+        case 12..<17:
+            timeGreeting = "Good afternoon"
+        case 17..<21:
+            timeGreeting = "Good evening"
+        default:
+            timeGreeting = "Good night"
+        }
+
+        return "\(timeGreeting), \(firstName)"
+    }
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Good afternoon, Marcus")
+                Text(greeting)
                     .font(.system(size: 13.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
                     .fontWeight(.medium)
@@ -306,5 +328,22 @@ extension Text {
 }
 
 #Preview {
-    TodayView(navigationManager: NavigationManager())
+    let appState = AppState()
+    let defaultCard = CardModel(
+        firstName: "Marcus",
+        lastName: "Chen",
+        email: "marcus@meridian.com",
+        role: "General Partner",
+        company: "Meridian Ventures",
+        isDefault: true
+    )
+    appState.currentUser = UserModel(
+        firstName: "Marcus",
+        lastName: "Chen",
+        email: "marcus@meridian.com",
+        role: "General Partner",
+        company: "Meridian Ventures",
+        cards: [defaultCard]
+    )
+    return TodayView(navigationManager: NavigationManager(), appState: appState)
 }

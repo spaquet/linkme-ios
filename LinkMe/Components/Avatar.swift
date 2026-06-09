@@ -13,6 +13,14 @@ struct Avatar: View {
         self.ring = ring
     }
 
+    init(firstName: String, lastName: String? = nil, size: CGFloat = 44, tone: String? = nil, ring: Bool = false) {
+        let fullName = lastName.map { "\(firstName) \($0)" } ?? firstName
+        self.name = fullName
+        self.size = size
+        self.tone = tone ?? Self.toneFor(fullName)
+        self.ring = ring
+    }
+
     private static func toneFor(_ name: String) -> String {
         let tones = ["teal", "slate", "amber", "indigo", "rose", "sky"]
         let hash = name.utf8.reduce(0) { ($0 &* 31 &+ UInt($1)) }

@@ -1,69 +1,6 @@
 import Foundation
 
-struct SocialLink: Codable, Identifiable {
-    let id: String
-    var type: SocialLinkType
-    var value: String
-
-    init(type: SocialLinkType, value: String) {
-        self.id = UUID().uuidString
-        self.type = type
-        self.value = value
-    }
-}
-
-enum SocialLinkType: String, Codable, CaseIterable {
-    case website
-    case blog
-    case x
-    case instagram
-    case linkedin
-    case tiktok
-    case threads
-    case bluesky
-}
-
-struct PaymentLink: Codable, Identifiable {
-    let id: String
-    var type: PaymentLinkType
-    var value: String
-
-    init(type: PaymentLinkType, value: String) {
-        self.id = UUID().uuidString
-        self.type = type
-        self.value = value
-    }
-}
-
-enum PaymentLinkType: String, Codable, CaseIterable {
-    case stripe
-    case venmo
-    case paypal
-    case square
-    case cashapp
-}
-
-struct ChatApp: Codable, Identifiable {
-    let id: String
-    var type: ChatAppType
-    var value: String
-
-    init(type: ChatAppType, value: String) {
-        self.id = UUID().uuidString
-        self.type = type
-        self.value = value
-    }
-}
-
-enum ChatAppType: String, Codable, CaseIterable {
-    case whatsapp
-    case wechat
-    case signal
-    case telegram
-    case imessage
-}
-
-struct UserModel: Codable {
+struct CardModel: Codable, Identifiable {
     let id: String
     var firstName: String
     var lastName: String?
@@ -80,7 +17,8 @@ struct UserModel: Codable {
     var socialLinks: [SocialLink]
     var paymentLinks: [PaymentLink]
     var chatApps: [ChatApp]
-    var cards: [CardModel]
+    var isDefault: Bool
+    var sharedPublicly: Bool
     var createdAt: Date
     var updatedAt: Date
     var deletedAt: Date?
@@ -109,7 +47,8 @@ struct UserModel: Codable {
         socialLinks: [SocialLink] = [],
         paymentLinks: [PaymentLink] = [],
         chatApps: [ChatApp] = [],
-        cards: [CardModel] = []
+        isDefault: Bool = false,
+        sharedPublicly: Bool = false
     ) {
         self.id = id
         self.firstName = firstName
@@ -127,13 +66,10 @@ struct UserModel: Codable {
         self.socialLinks = socialLinks
         self.paymentLinks = paymentLinks
         self.chatApps = chatApps
-        self.cards = cards
+        self.isDefault = isDefault
+        self.sharedPublicly = sharedPublicly
         self.createdAt = Date()
         self.updatedAt = Date()
         self.deletedAt = nil
-    }
-
-    var defaultCard: CardModel? {
-        cards.first { $0.isDefault }
     }
 }
