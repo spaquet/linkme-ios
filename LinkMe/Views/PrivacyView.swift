@@ -158,7 +158,7 @@ struct PrivacyView: View {
                                     PrivacyRow(
                                         icon: "waveform.circle.fill",
                                         title: "Siri & App Intents",
-                                        detail: ""Hey Siri, brief me on Marcus." Requests are handled on device.",
+                                        detail: "\"Hey Siri, brief me on Marcus.\" Requests are handled on device.",
                                         isToggled: $siri,
                                         isLocked: false
                                     )
