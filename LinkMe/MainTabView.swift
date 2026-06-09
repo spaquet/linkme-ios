@@ -51,9 +51,9 @@ struct CustomTabBar: View {
             Divider()
                 .foregroundColor(LinkMeColors.s200)
 
-            ZStack(alignment: .top) {
-                Color.white.opacity(0.92)
-                    .blur(radius: 16)
+            ZStack(alignment: .center) {
+                LinkMeColors.white
+                    .ignoresSafeArea(edges: .bottom)
 
                 HStack(spacing: 0) {
                     TabBarItem(
@@ -115,12 +115,10 @@ struct CustomTabBar: View {
                         action: { selectedTab = 4 }
                     )
                 }
-                .frame(height: LinkMeLayout.tabBarHeight - LinkMeLayout.homeInset)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+                .frame(height: 70)
+                .padding(.top, 6)
             }
-            .frame(height: LinkMeLayout.tabBarHeight - LinkMeLayout.homeInset + 8)
-            .padding(.bottom, LinkMeLayout.homeInset)
+            .frame(height: 70 + LinkMeLayout.homeInset)
         }
     }
 }
@@ -135,16 +133,15 @@ struct TabBarItem: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 23, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 23, weight: isSelected ? .semibold : .light))
 
                 Text(label)
-                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .medium, design: .default))
+                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .light, design: .default))
                     .tracking(0.01)
             }
             .frame(maxWidth: .infinity)
             .foregroundColor(isSelected ? LinkMeColors.t700 : LinkMeColors.s400)
         }
-        .padding(.vertical, 2)
     }
 }
 
