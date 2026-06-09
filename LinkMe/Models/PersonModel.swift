@@ -10,6 +10,7 @@ struct PersonModel: Identifiable, Hashable {
     var lastContact: Date?
     var isFavorite: Bool
     var notes: [String] = []
+    var tags: [String] = []
     var deletedAt: Date?
 
     init(id: String = UUID().uuidString, name: String, company: String, role: String) {

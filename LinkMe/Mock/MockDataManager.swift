@@ -1,13 +1,31 @@
 import Foundation
 
 enum MockDataManager {
-    static let mockPeople: [PersonModel] = [
-        PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"),
-        PersonModel(id: "2", name: "Sarah Johnson", company: "Acme Corp", role: "VP Product"),
-        PersonModel(id: "3", name: "Alex Rivera", company: "TechStart", role: "Founder & CEO"),
-        PersonModel(id: "4", name: "Jamie Lee", company: "Ventures Inc", role: "Partner"),
-        PersonModel(id: "5", name: "Chris Wang", company: "Growth Labs", role: "Director"),
-    ]
+    static let mockPeople: [PersonModel] = {
+        var people = [
+            PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"),
+            PersonModel(id: "2", name: "Sarah Johnson", company: "Acme Corp", role: "VP Product"),
+            PersonModel(id: "3", name: "Alex Rivera", company: "TechStart", role: "Founder & CEO"),
+            PersonModel(id: "4", name: "Jamie Lee", company: "Ventures Inc", role: "Partner"),
+            PersonModel(id: "5", name: "Chris Wang", company: "Growth Labs", role: "Director"),
+        ]
+        people[0].tags = ["Investor", "Angel"]
+        people[0].lastContact = Calendar.current.date(byAdding: .day, value: -5, to: Date())
+
+        people[1].tags = ["Exec"]
+        people[1].lastContact = Calendar.current.date(byAdding: .month, value: -3, to: Date())
+
+        people[2].tags = ["Founder"]
+        people[2].lastContact = Calendar.current.date(byAdding: .month, value: -11, to: Date())
+
+        people[3].tags = ["Investor"]
+        people[3].lastContact = Calendar.current.date(byAdding: .year, value: -1, to: Date())
+
+        people[4].tags = ["Exec"]
+        people[4].lastContact = Calendar.current.date(byAdding: .month, value: -2, to: Date())
+
+        return people
+    }()
 
     static let mockNotes: [NoteModel] = [
         NoteModel(personId: "1", text: "Leading venture fund close this month. Interested in data infra space.", transcription: "leading venture fund close this month interested in data infra space"),

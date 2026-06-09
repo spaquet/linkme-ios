@@ -4,12 +4,55 @@ struct PeopleView: View {
     let navigationManager: NavigationManager
     @State private var people: [PersonModel] = []
     @State private var searchText = ""
+    @State private var selectedFilter = "All"
 
-    var filteredPeople: [PersonModel] {
-        if searchText.isEmpty {
-            return people
+    private let filters = ["All", "Investors", "Founders", "Execs"]
+
+    private func formatLastContact(_ date: Date?) -> String {
+        guard let date = date else { return "Never" }
+        let calendar = Calendar.current
+        let now = Date()
+        let components = calendar.dateComponents([.day, .month, .year], from: date, to: now)
+
+        guard let days = components.day, let months = components.month, let years = components.year else {
+            return "Never"
         }
-        return people.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+
+        if years > 0 {
+            return "\(years)y"
+        } else if months > 0 {
+            // Round up: 11mo 23d → 12mo
+            let totalMonths = months + (days >= 15 ? 1 : 0)
+            return "\(totalMonths)mo"
+        } else if days > 0 {
+            return "\(days)d"
+        } else {
+            return "Today"
+        }
+    }
+
+    private var filteredPeople: [PersonModel] {
+        var result = people
+
+        // Apply tag filter
+        if selectedFilter != "All" {
+            result = result.filter { person in
+                if selectedFilter == "Investors" {
+                    return person.tags.contains { $0.contains("Investor") || $0.contains("Angel") }
+                } else if selectedFilter == "Founders" {
+                    return person.tags.contains("Founder")
+                } else if selectedFilter == "Execs" {
+                    return person.tags.contains { $0.contains("Exec") || $0.contains("Buyer") }
+                }
+                return true
+            }
+        }
+
+        // Apply search filter
+        if searchText.isEmpty {
+            return result
+        }
+        return result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
@@ -19,21 +62,17 @@ struct PeopleView: View {
 
             VStack(spacing: 0) {
                 // TopBar
-                HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("People")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 28, weight: .semibold, design: .default))
+                        .tracking(-0.02)
                         .foregroundColor(LinkMeColors.ink)
 
-                    Spacer()
-
-                    Button(action: {
-                        navigationManager.openCapture()
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(LinkMeColors.t700)
-                    }
+                    Text("\(people.count) relationships · all on this device")
+                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
@@ -52,6 +91,25 @@ struct PeopleView: View {
                 .padding(.vertical, 10)
                 .background(LinkMeColors.surface)
                 .cornerRadius(LinkMeLayout.cornerRadius)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                // Filter chips
+                HStack(spacing: 8) {
+                    ForEach(filters, id: \.self) { filter in
+                        Button(action: { selectedFilter = filter }) {
+                            Text(filter)
+                                .font(.system(size: 13.5, weight: .semibold, design: .default))
+                                .foregroundColor(selectedFilter == filter ? .white : LinkMeColors.s600)
+                                .frame(height: 32)
+                                .padding(.horizontal, 14)
+                                .background(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.surface)
+                                .border(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, width: 1)
+                                .cornerRadius(999)
+                        }
+                    }
+                    Spacer()
+                }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
@@ -93,9 +151,15 @@ struct PeopleView: View {
 
                                         Spacer()
 
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .foregroundColor(LinkMeColors.s300)
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text(formatLastContact(person.lastContact))
+                                                .font(.system(size: 11.5, weight: .regular, design: .default))
+                                                .foregroundColor(LinkMeColors.s400)
+
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.s300)
+                                        }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 16)
