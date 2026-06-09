@@ -1,79 +1,5 @@
 import SwiftUI
 
-// Custom email input to control placeholder color
-struct EmailInput: UIViewRepresentable {
-    @Binding var text: String
-    let isFocused: Bool
-    let onFocusChange: (Bool) -> Void
-
-    func makeUIView(context: Context) -> UITextField {
-        let field = UITextField()
-        field.text = text
-        field.keyboardType = .emailAddress
-        field.textContentType = .emailAddress
-        field.autocorrectionType = .no
-        field.autocapitalizationType = .none
-        field.returnKeyType = .done
-        field.borderStyle = .none
-        field.backgroundColor = .clear
-        field.font = .systemFont(ofSize: 15)
-        field.textColor = UIColor(LinkMeColors.ink)
-        field.tintColor = UIColor(LinkMeColors.t500)
-
-        let placeholderColor = UIColor(LinkMeColors.s400)
-        field.attributedPlaceholder = NSAttributedString(
-            string: "you@company.com",
-            attributes: [.foregroundColor: placeholderColor]
-        )
-
-        field.delegate = context.coordinator
-        return field
-    }
-
-    func updateUIView(_ uiView: UITextField, context: Context) {
-        if isFocused && !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
-        } else if !isFocused && uiView.isFirstResponder {
-            uiView.resignFirstResponder()
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onFocusChange: onFocusChange)
-    }
-
-    class Coordinator: NSObject, UITextFieldDelegate {
-        @Binding var text: String
-        let onFocusChange: (Bool) -> Void
-
-        init(text: Binding<String>, onFocusChange: @escaping (Bool) -> Void) {
-            self._text = text
-            self.onFocusChange = onFocusChange
-        }
-
-        func textField(_ UITextField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-            let newText = (UITextField.text as NSString?)?.replacingCharacters(in: range, with: string) ?? string
-            self.text = newText
-            return true
-        }
-
-        func textFieldDidEndEditing(_ UITextField: UITextField) {
-            self.text = UITextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-            self.onFocusChange(false)
-        }
-
-        func textFieldDidBeginEditing(_ textField: UITextField) {
-            self.onFocusChange(true)
-        }
-
-        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            self.onFocusChange(false)
-            textField.resignFirstResponder()
-            return true
-        }
-    }
-}
-
 enum OnboardingCardField: Hashable {
     case firstName
     case lastName
@@ -794,13 +720,26 @@ struct CreateCardView: View {
                                 .foregroundColor(LinkMeColors.s400)
                                 .tracking(0.04)
 
-                            EmailInput(
+                            TextField(
+                                "",
                                 text: $email,
-                                isFocused: focusedField == .email,
-                                onFocusChange: { isFocused in
-                                    focusedField = isFocused ? .email : nil
-                                }
+                                prompt: Text("you@company.com")
+                                    .foregroundColor(LinkMeColors.s400)
                             )
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 15, design: .default))
+                                .foregroundColor(LinkMeColors.ink)
+                                .accentColor(LinkMeColors.t500)
+                                .keyboardType(.emailAddress)
+                                .textContentType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .focused($focusedField, equals: .email)
+                                .submitLabel(.done)
+                                .onSubmit {
+                                    normalizeEmail()
+                                    focusedField = nil
+                                }
                                 .padding(.horizontal, 13)
                                 .frame(height: 46)
                                 .background(LinkMeColors.surface)
@@ -808,6 +747,11 @@ struct CreateCardView: View {
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(focusedField == .email ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
                                 )
+                        }
+                    }
+                    .onChange(of: focusedField) { previousField, newField in
+                        if previousField == .email && newField != .email {
+                            normalizeEmail()
                         }
                     }
 
@@ -837,6 +781,10 @@ struct CreateCardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 6)
         .padding(.vertical, 14)
+    }
+
+    private func normalizeEmail() {
+        email = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
 

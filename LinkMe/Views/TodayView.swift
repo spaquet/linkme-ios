@@ -130,20 +130,29 @@ struct TopBar: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(greeting)
                     .font(.system(size: 13.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
                     .fontWeight(.medium)
+
+                Text("Today")
+                    .font(.system(size: 28, weight: .semibold, design: .default))
+                    .tracking(-0.02)
+                    .foregroundColor(LinkMeColors.ink)
             }
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button(action: {}) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(LinkMeColors.s600)
+                        .frame(width: 40, height: 40)
+                        .background(LinkMeColors.surface)
+                        .cornerRadius(12)
+                        .border(LinkMeColors.s200, width: 1)
                 }
 
                 ZStack(alignment: .topTrailing) {
@@ -151,6 +160,10 @@ struct TopBar: View {
                         Image(systemName: "bell")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
+                            .frame(width: 40, height: 40)
+                            .background(LinkMeColors.surface)
+                            .cornerRadius(12)
+                            .border(LinkMeColors.s200, width: 1)
                     }
 
                     Circle()

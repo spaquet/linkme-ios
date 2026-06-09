@@ -6,36 +6,23 @@ struct MainTabView: View {
     @State private var navigationManager = NavigationManager()
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
                 TodayView(navigationManager: navigationManager, appState: appState)
-                    .tabItem {
-                        Image(systemName: "house.fill")
-                        Text("Today")
-                    }
                     .tag(0)
 
                 PeopleView(navigationManager: navigationManager)
-                    .tabItem {
-                        Image(systemName: "person.2.fill")
-                        Text("People")
-                    }
                     .tag(1)
 
                 ThreadsView()
-                    .tabItem {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                        Text("Threads")
-                    }
-                    .tag(2)
+                    .tag(3)
 
                 PrivacyView()
-                    .tabItem {
-                        Image(systemName: "lock.fill")
-                        Text("Privacy")
-                    }
-                    .tag(3)
+                    .tag(4)
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+
+            CustomTabBar(selectedTab: $selectedTab, navigationManager: navigationManager)
 
             NavigationStack {
                 EmptyView()
@@ -52,6 +39,112 @@ struct MainTabView: View {
         .sheet(item: $navigationManager.showBriefingSheet) { person in
             BriefingView(person: person)
         }
+    }
+}
+
+struct CustomTabBar: View {
+    @Binding var selectedTab: Int
+    let navigationManager: NavigationManager
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+                .foregroundColor(LinkMeColors.s200)
+
+            ZStack(alignment: .top) {
+                Color.white.opacity(0.92)
+                    .blur(radius: 16)
+
+                HStack(spacing: 0) {
+                    TabBarItem(
+                        icon: "house.fill",
+                        label: "Today",
+                        isSelected: selectedTab == 0,
+                        action: { selectedTab = 0 }
+                    )
+
+                    TabBarItem(
+                        icon: "person.2.fill",
+                        label: "People",
+                        isSelected: selectedTab == 1,
+                        action: { selectedTab = 1 }
+                    )
+
+                    VStack {
+                        Button(action: {
+                            navigationManager.showCaptureSheet = true
+                        }) {
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 26, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 60, height: 60)
+                                .background(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            LinkMeColors.t400,
+                                            LinkMeColors.t600
+                                        ]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .cornerRadius(22)
+                                .shadow(
+                                    color: LinkMeColors.t600.opacity(0.3),
+                                    radius: 8,
+                                    x: 0,
+                                    y: 4
+                                )
+                        }
+                        .offset(y: -22)
+
+                        Spacer()
+                    }
+
+                    TabBarItem(
+                        icon: "chart.bar.yaxis",
+                        label: "Threads",
+                        isSelected: selectedTab == 3,
+                        action: { selectedTab = 3 }
+                    )
+
+                    TabBarItem(
+                        icon: "checkmark.shield",
+                        label: "Privacy",
+                        isSelected: selectedTab == 4,
+                        action: { selectedTab = 4 }
+                    )
+                }
+                .frame(height: LinkMeLayout.tabBarHeight - LinkMeLayout.homeInset)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+            }
+            .frame(height: LinkMeLayout.tabBarHeight - LinkMeLayout.homeInset + 8)
+            .padding(.bottom, LinkMeLayout.homeInset)
+        }
+    }
+}
+
+struct TabBarItem: View {
+    let icon: String
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 23, weight: isSelected ? .semibold : .regular))
+
+                Text(label)
+                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .medium, design: .default))
+                    .tracking(0.01)
+            }
+            .frame(maxWidth: .infinity)
+            .foregroundColor(isSelected ? LinkMeColors.t700 : LinkMeColors.s400)
+        }
+        .padding(.vertical, 2)
     }
 }
 

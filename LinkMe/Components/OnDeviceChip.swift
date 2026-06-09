@@ -9,7 +9,7 @@ struct OnDeviceChip: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: "lock.fill")
+            Image(systemName: "lock")
                 .font(.system(size: 12, weight: .semibold))
             Text(label)
                 .font(.system(size: 11.5, weight: .semibold, design: .default))
