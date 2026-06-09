@@ -5,7 +5,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if appState.hasCompletedOnboarding && appState.currentUser != nil {
+            if appState.hasCompletedOnboarding {
                 MainTabView(appState: appState)
             } else {
                 OnboardingView(appState: appState, onDone: {
