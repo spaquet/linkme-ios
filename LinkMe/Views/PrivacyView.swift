@@ -1,5 +1,43 @@
 import SwiftUI
 
+struct JustifiedText: UIViewRepresentable {
+    let text: String
+    let fontSize: CGFloat
+    let color: UIColor
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+
+        let attributedString = NSMutableAttributedString(string: text)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .justified
+
+        attributedString.addAttribute(
+            .paragraphStyle,
+            value: paragraphStyle,
+            range: NSRange(location: 0, length: attributedString.length)
+        )
+
+        attributedString.addAttribute(
+            .font,
+            value: UIFont.systemFont(ofSize: fontSize),
+            range: NSRange(location: 0, length: attributedString.length)
+        )
+
+        attributedString.addAttribute(
+            .foregroundColor,
+            value: color,
+            range: NSRange(location: 0, length: attributedString.length)
+        )
+
+        label.attributedText = attributedString
+        return label
+    }
+
+    func updateUIView(_ uiView: UILabel, context: Context) {}
+}
+
 struct PrivacyView: View {
     @State private var cloudEnrichment = false
     @State private var lifeSignals = true
@@ -54,10 +92,12 @@ struct PrivacyView: View {
                                         .foregroundColor(.white)
                                         .lineHeight(1.25)
 
-                                    Text("Capture, transcription, briefings and nudges all run on-device with Apple's on-device models. Nothing leaves unless you turn on a specific switch below.")
-                                        .font(.system(size: 13.5, design: .default))
-                                        .foregroundColor(Color.white.opacity(0.66))
-                                        .lineHeight(1.55)
+                                    JustifiedText(
+                                        text: "Capture, transcription, briefings and nudges all run on-device with Apple's on-device models. Nothing leaves unless you turn on a specific switch below.",
+                                        fontSize: 13.5,
+                                        color: UIColor.white.withAlphaComponent(0.66)
+                                    )
+                                    .frame(height: nil)
 
                                     HStack(spacing: 18) {
                                         StatItem(number: "18", label: "people")
