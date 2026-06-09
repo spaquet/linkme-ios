@@ -223,8 +223,11 @@ struct PrivacyRow: View {
                     .foregroundColor(LinkMeColors.t600)
                     .frame(width: 40, height: 40)
                     .background(LinkMeColors.t50)
-                    .cornerRadius(12)
-                    .border(LinkMeColors.t200, width: 1.5)
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(LinkMeColors.t200, lineWidth: 1.5)
+                    )
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
