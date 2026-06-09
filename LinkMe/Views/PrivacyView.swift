@@ -38,7 +38,7 @@ struct PrivacyView: View {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack(spacing: 0) {
-                                        Image(systemName: "shield.fill")
+                                        Image(systemName: "checkmark.shield.fill")
                                             .font(.system(size: 24, weight: .semibold))
                                             .foregroundColor(LinkMeColors.t400)
                                             .frame(width: 46, height: 46)
@@ -62,7 +62,7 @@ struct PrivacyView: View {
                                     HStack(spacing: 18) {
                                         StatItem(number: "18", label: "people")
                                         StatItem(number: "46", label: "captures")
-                                        StatItem(number: "0", label: "left this device", highlight: true)
+                                        StatItem(number: "0", label: "left this device")
                                     }
                                 }
 
@@ -81,6 +81,10 @@ struct PrivacyView: View {
                             )
                         )
                         .cornerRadius(22)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
 
                         // What runs on device
                         VStack(spacing: 10) {
@@ -189,19 +193,12 @@ struct PrivacyView: View {
 struct StatItem: View {
     let number: String
     let label: String
-    let highlight: Bool
-
-    init(number: String, label: String, highlight: Bool = false) {
-        self.number = number
-        self.label = label
-        self.highlight = highlight
-    }
 
     var body: some View {
         VStack(spacing: 2) {
             Text(number)
                 .font(.system(size: 22, weight: .semibold, design: .default))
-                .foregroundColor(highlight ? LinkMeColors.t400 : .white)
+                .foregroundColor(.white)
 
             Text(label)
                 .font(.system(size: 11.5, design: .default))
