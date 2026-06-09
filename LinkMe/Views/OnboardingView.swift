@@ -4,7 +4,6 @@ import SwiftUI
 struct EmailInput: UIViewRepresentable {
     @Binding var text: String
     var isFocused: Bool
-    var onFocus: () -> Void
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
@@ -12,13 +11,15 @@ struct EmailInput: UIViewRepresentable {
         field.keyboardType = .emailAddress
         field.textContentType = .emailAddress
         field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.returnKeyType = .done
         field.borderStyle = .none
         field.backgroundColor = .clear
         field.font = .systemFont(ofSize: 15)
         field.textColor = UIColor(LinkMeColors.ink)
-        field.tintColor = UIColor(LinkMeColors.s500)
+        field.tintColor = UIColor(LinkMeColors.t500)
 
-        let placeholderColor = UIColor(LinkMeColors.s500)
+        let placeholderColor = UIColor(LinkMeColors.s400)
         field.attributedPlaceholder = NSAttributedString(
             string: "you@company.com",
             attributes: [.foregroundColor: placeholderColor]
@@ -33,20 +34,14 @@ struct EmailInput: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onFocus: onFocus)
+        Coordinator(text: $text)
     }
 
     class Coordinator: NSObject, UITextFieldDelegate {
         @Binding var text: String
-        var onFocus: () -> Void
 
-        init(text: Binding<String>, onFocus: @escaping () -> Void) {
+        init(text: Binding<String>) {
             self._text = text
-            self.onFocus = onFocus
-        }
-
-        func textFieldDidBeginEditing(_ UITextField: UITextField) {
-            onFocus()
         }
 
         func textField(_ UITextField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
@@ -54,12 +49,27 @@ struct EmailInput: UIViewRepresentable {
             self.text = newText
             return false
         }
+
+        func textFieldDidEndEditing(_ UITextField: UITextField) {
+            self.text = UITextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        }
     }
 }
 
 struct OnboardingView: View {
     var onDone: () -> Void
     @State private var currentSlide = 0
+    @State private var name = ""
+    @State private var role = ""
+    @State private var company = ""
+    @State private var tagline = ""
+    @State private var email = ""
+    @FocusState private var focusedField: String?
+
+    private var isFormValid: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !email.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -99,7 +109,14 @@ struct OnboardingView: View {
                     case 2:
                         RecallView()
                     case 3:
-                        CreateCardView()
+                        CreateCardView(
+                            name: $name,
+                            role: $role,
+                            company: $company,
+                            tagline: $tagline,
+                            email: $email,
+                            focusedField: $focusedField
+                        )
                     default:
                         Text("Unknown slide")
                     }
@@ -120,6 +137,7 @@ struct OnboardingView: View {
                             onDone()
                         }
                     }
+                    .disabled(currentSlide == 3 && !isFormValid)
 
                     if currentSlide == 0 {
                         Button("I already have a profile") {
@@ -489,12 +507,12 @@ struct RecallView: View {
 
 // MARK: - Slide 4: Create Card
 struct CreateCardView: View {
-    @State private var name = ""
-    @State private var role = ""
-    @State private var company = ""
-    @State private var tagline = ""
-    @State private var email = ""
-    @State private var focusedField: String?
+    @Binding var name: String
+    @Binding var role: String
+    @Binding var company: String
+    @Binding var tagline: String
+    @Binding var email: String
+    @FocusState.Binding var focusedField: String?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -578,7 +596,12 @@ struct CreateCardView: View {
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 15, design: .default))
                                 .foregroundColor(LinkMeColors.ink)
-                                .accentColor(LinkMeColors.s500)
+                                .accentColor(LinkMeColors.t500)
+                                .textContentType(.name)
+                                .autocorrectionDisabled()
+                                .focused($focusedField, equals: "name")
+                                .submitLabel(.next)
+                                .onSubmit { focusedField = "role" }
                                 .padding(.horizontal, 13)
                                 .padding(.vertical, 12)
                                 .frame(height: 46)
@@ -587,9 +610,6 @@ struct CreateCardView: View {
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(focusedField == "name" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
                                 )
-                                .onTapGesture {
-                                    focusedField = "name"
-                                }
                         }
 
                         // Role & Company (2 columns)
@@ -604,6 +624,11 @@ struct CreateCardView: View {
                                     .textFieldStyle(.plain)
                                     .font(.system(size: 15, design: .default))
                                     .foregroundColor(LinkMeColors.ink)
+                                    .accentColor(LinkMeColors.t500)
+                                    .autocorrectionDisabled()
+                                    .focused($focusedField, equals: "role")
+                                    .submitLabel(.next)
+                                    .onSubmit { focusedField = "company" }
                                     .padding(.horizontal, 13)
                                     .padding(.vertical, 12)
                                     .frame(height: 46)
@@ -612,9 +637,6 @@ struct CreateCardView: View {
                                         RoundedRectangle(cornerRadius: 12)
                                             .stroke(focusedField == "role" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
                                     )
-                                    .onTapGesture {
-                                        focusedField = "role"
-                                    }
                             }
 
                             VStack(alignment: .leading, spacing: 5) {
@@ -627,6 +649,12 @@ struct CreateCardView: View {
                                     .textFieldStyle(.plain)
                                     .font(.system(size: 15, design: .default))
                                     .foregroundColor(LinkMeColors.ink)
+                                    .accentColor(LinkMeColors.t500)
+                                    .textContentType(.organizationName)
+                                    .autocorrectionDisabled()
+                                    .focused($focusedField, equals: "company")
+                                    .submitLabel(.next)
+                                    .onSubmit { focusedField = "tagline" }
                                     .padding(.horizontal, 13)
                                     .padding(.vertical, 12)
                                     .frame(height: 46)
@@ -635,9 +663,6 @@ struct CreateCardView: View {
                                         RoundedRectangle(cornerRadius: 12)
                                             .stroke(focusedField == "company" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
                                     )
-                                    .onTapGesture {
-                                        focusedField = "company"
-                                    }
                             }
                         }
 
@@ -652,6 +677,11 @@ struct CreateCardView: View {
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 15, design: .default))
                                 .foregroundColor(LinkMeColors.ink)
+                                .accentColor(LinkMeColors.t500)
+                                .autocorrectionDisabled()
+                                .focused($focusedField, equals: "tagline")
+                                .submitLabel(.next)
+                                .onSubmit { focusedField = "email" }
                                 .padding(.horizontal, 13)
                                 .padding(.vertical, 12)
                                 .frame(height: 46)
@@ -660,9 +690,6 @@ struct CreateCardView: View {
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(focusedField == "tagline" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
                                 )
-                                .onTapGesture {
-                                    focusedField = "tagline"
-                                }
                         }
 
                         // Email
@@ -672,16 +699,15 @@ struct CreateCardView: View {
                                 .foregroundColor(LinkMeColors.s400)
                                 .tracking(0.04)
 
-                            EmailInput(text: $email, isFocused: focusedField == "email") {
-                                focusedField = "email"
-                            }
-                            .padding(.horizontal, 13)
-                            .frame(height: 46)
-                            .background(LinkMeColors.surface)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(focusedField == "email" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                            )
+                            EmailInput(text: $email, isFocused: focusedField == "email")
+                                .padding(.horizontal, 13)
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == "email" ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
+                                .focused($focusedField, equals: "email")
                         }
                     }
 
