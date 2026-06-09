@@ -32,7 +32,7 @@ struct PrivacyView: View {
                 .padding(.top, LinkMeLayout.statusBarHeight - 20)
 
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 20) {
                         // Hero section
                         VStack(spacing: 14) {
                             HStack(alignment: .top) {
@@ -70,6 +70,7 @@ struct PrivacyView: View {
                             }
                         }
                         .padding(22)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             LinearGradient(
                                 gradient: Gradient(colors: [
@@ -87,7 +88,7 @@ struct PrivacyView: View {
                         )
 
                         // What runs on device
-                        VStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 10) {
                             SectionLabel("What runs on device")
 
                             Card(padding: 0) {
@@ -114,7 +115,7 @@ struct PrivacyView: View {
                         }
 
                         // What needs your permission
-                        VStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 10) {
                             SectionLabel("What needs your permission")
 
                             Card(padding: 0) {
