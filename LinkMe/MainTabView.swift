@@ -64,7 +64,7 @@ struct CustomTabBar: View {
                     )
 
                     TabBarItem(
-                        icon: "person.2.fill",
+                        icon: "person.2",
                         label: "People",
                         isSelected: selectedTab == 1,
                         action: { selectedTab = 1 }
