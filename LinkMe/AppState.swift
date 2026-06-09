@@ -7,9 +7,22 @@ class AppState {
         set { UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding") }
     }
 
-    var currentUser: UserModel?
+    var currentUser: UserModel? {
+        didSet {
+            if let user = currentUser {
+                if let encoded = try? JSONEncoder().encode(user) {
+                    UserDefaults.standard.set(encoded, forKey: "currentUser")
+                }
+            } else {
+                UserDefaults.standard.removeObject(forKey: "currentUser")
+            }
+        }
+    }
 
     init() {
-        // Load user from database if exists
+        if let data = UserDefaults.standard.data(forKey: "currentUser"),
+           let user = try? JSONDecoder().decode(UserModel.self, from: data) {
+            self.currentUser = user
+        }
     }
 }
