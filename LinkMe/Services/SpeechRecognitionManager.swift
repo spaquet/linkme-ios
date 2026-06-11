@@ -2,29 +2,39 @@ import Foundation
 import Speech
 import AVFoundation
 
+enum PermissionType: Equatable {
+    case microphone
+    case speechRecognition
+}
+
 @Observable
 class SpeechRecognitionManager {
     var isRecording = false
     var recognizedText = ""
     var error: String?
 
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
+    private var speechRecognitionTask: Task<Void, Never>?
     private let audioEngine = AVAudioEngine()
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionSFTask: SFSpeechRecognitionTask?
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
 
-    func requestAuthorization(completion: @escaping (Bool) -> Void) {
+    func requestAuthorization(completion: @escaping (PermissionType?) -> Void) {
         AVAudioApplication.requestRecordPermission { [weak self] granted in
             guard granted else {
                 DispatchQueue.main.async {
-                    completion(false)
+                    completion(.microphone)
                 }
                 return
             }
 
             SFSpeechRecognizer.requestAuthorization { status in
                 DispatchQueue.main.async {
-                    completion(status == .authorized)
+                    if status == .authorized {
+                        completion(nil)
+                    } else {
+                        completion(.speechRecognition)
+                    }
                 }
             }
         }
@@ -45,8 +55,9 @@ class SpeechRecognitionManager {
 
             let inputNode = audioEngine.inputNode
             recognitionRequest.shouldReportPartialResults = true
+            recognitionRequest.requiresOnDeviceRecognition = true
 
-            recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            recognitionSFTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
                 if let result = result {
                     self?.recognizedText = result.bestTranscription.formattedString
                 }
@@ -55,7 +66,7 @@ class SpeechRecognitionManager {
                     self?.audioEngine.stop()
                     inputNode.removeTap(onBus: 0)
                     self?.recognitionRequest = nil
-                    self?.recognitionTask = nil
+                    self?.recognitionSFTask = nil
                     self?.isRecording = false
                 }
             }

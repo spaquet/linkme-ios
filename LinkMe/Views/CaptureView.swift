@@ -78,6 +78,12 @@ struct CaptureView: View {
                                 }
                             )
                         }
+
+                    case .permissionDenied(let permissionType):
+                        PermissionDeniedView(
+                            permissionType: permissionType,
+                            onDismiss: { dismiss() }
+                        )
                     }
                 }
 
@@ -85,10 +91,9 @@ struct CaptureView: View {
             }
         }
         .onAppear {
-            speechManager.requestAuthorization { authorized in
-                if !authorized {
-                    errorMessage = "Microphone access denied. Enable in Settings > LinkMe > Microphone"
-                    showErrorAlert = true
+            speechManager.requestAuthorization { deniedPermission in
+                if let deniedPermission = deniedPermission {
+                    phase = .permissionDenied(deniedPermission)
                 } else {
                     startListening()
                 }
@@ -158,11 +163,12 @@ struct CaptureView: View {
     }
 }
 
-enum CapturePhase {
+enum CapturePhase: Equatable {
     case idle
     case listening
     case processing
     case result
+    case permissionDenied(PermissionType)
 }
 
 // MARK: - Listening Phase
@@ -493,6 +499,106 @@ struct ExtractFieldView: View {
             }
         }
         .padding(.vertical, 13)
+    }
+}
+
+// MARK: - Permission Denied
+struct PermissionDeniedView: View {
+    let permissionType: PermissionType
+    let onDismiss: () -> Void
+
+    var icon: String {
+        switch permissionType {
+        case .microphone:
+            "mic.slash"
+        case .speechRecognition:
+            "waveform"
+        }
+    }
+
+    var title: String {
+        switch permissionType {
+        case .microphone:
+            "Microphone Access Needed"
+        case .speechRecognition:
+            "Speech Recognition Access Needed"
+        }
+    }
+
+    var description: String {
+        switch permissionType {
+        case .microphone:
+            "LinkMe needs access to your microphone to capture voice notes. Enable it in Settings to get started."
+        case .speechRecognition:
+            "LinkMe needs access to Speech Recognition to transcribe your notes. Enable it in Settings to continue."
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(LinkMeColors.s100)
+                            .frame(width: 90, height: 90)
+
+                        Image(systemName: icon)
+                            .font(.system(size: 40, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                    }
+
+                    VStack(spacing: 10) {
+                        Text(title)
+                            .font(.system(size: 20, weight: .semibold))
+                            .tracking(-0.02)
+                            .foregroundColor(LinkMeColors.ink)
+
+                        Text(description)
+                            .font(.system(size: 15, weight: .regular, design: .default))
+                            .foregroundColor(LinkMeColors.s600)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(2)
+                    }
+                }
+                .frame(maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 30)
+                .padding(.vertical, 40)
+
+                VStack(spacing: 12) {
+                    Button(action: openSettings) {
+                        HStack {
+                            Image(systemName: "gear")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Open Settings")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(LinkMeColors.t600)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+
+                    Button(action: onDismiss) {
+                        Text("Cancel")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .foregroundColor(LinkMeColors.t700)
+                            .background(LinkMeColors.s100)
+                            .cornerRadius(10)
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.bottom, 28)
+            }
+        }
+    }
+
+    private func openSettings() {
+        guard let settingsURL = URL(string: "app-settings://") else { return }
+        UIApplication.shared.open(settingsURL)
     }
 }
 
