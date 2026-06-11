@@ -11,30 +11,19 @@ struct ThreadsView: View {
 
             VStack(spacing: 0) {
                 // TopBar
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Threads")
-                                .font(.system(size: 28, weight: .semibold, design: .default))
-                                .tracking(-0.03)
-                                .foregroundColor(LinkMeColors.ink)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Threads")
+                        .font(.system(size: 28, weight: .semibold, design: .default))
+                        .tracking(-0.03)
+                        .foregroundColor(LinkMeColors.ink)
 
-                            Text("Proactive nudges & open follow-ups")
-                                .font(.system(size: 13.5, design: .default))
-                                .foregroundColor(LinkMeColors.s500)
-                        }
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .padding(.top, LinkMeLayout.statusBarHeight - 20)
-
-                    Rectangle()
-                        .fill(LinkMeColors.s200)
-                        .frame(height: 1)
+                    Text("Proactive nudges & open follow-ups")
+                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
                 }
-                .background(LinkMeColors.canvas)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
 
                 // Content
                 ScrollView {

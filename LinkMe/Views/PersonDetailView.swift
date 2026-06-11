@@ -15,7 +15,9 @@ struct PersonDetailView: View {
                 // Header with back button and actions
                 HStack(spacing: 12) {
                     Button(action: {
-                        navigationManager.navigationPath.removeLast()
+                        if !navigationManager.navigationPath.isEmpty {
+                            navigationManager.navigationPath.removeLast()
+                        }
                     }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))

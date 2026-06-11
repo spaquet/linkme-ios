@@ -13,23 +13,19 @@ struct PrivacyView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Privacy")
-                            .font(.system(size: 28, weight: .semibold, design: .default))
-                            .tracking(-0.02)
-                            .foregroundColor(LinkMeColors.ink)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Privacy")
+                        .font(.system(size: 28, weight: .semibold, design: .default))
+                        .tracking(-0.02)
+                        .foregroundColor(LinkMeColors.ink)
 
-                        Text("You can see exactly what stays on device")
-                            .font(.system(size: 13, design: .default))
-                            .foregroundColor(LinkMeColors.s500)
-                    }
-
-                    Spacer()
+                    Text("You can see exactly what stays on device")
+                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .padding(.top, LinkMeLayout.statusBarHeight - 20)
+                .padding(.vertical, 12)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {

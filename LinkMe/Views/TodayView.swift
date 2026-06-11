@@ -3,7 +3,9 @@ import SwiftUI
 struct TodayView: View {
     let navigationManager: NavigationManager
     let appState: AppState
+    @Binding var selectedTab: Int
     @State private var people: [PersonModel] = MockDataManager.mockPeople
+    @State private var nudges: [NudgeModel] = MockDataManager.mockNudges
 
     var body: some View {
         ZStack {
@@ -12,7 +14,7 @@ struct TodayView: View {
 
             VStack(spacing: 0) {
                 // TopBar
-                TopBar(appState: appState)
+                TopBar(appState: appState, navigationManager: navigationManager, selectedTab: $selectedTab)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .padding(.top, LinkMeLayout.statusBarHeight - 20)
@@ -58,40 +60,111 @@ struct TodayView: View {
                             HStack {
                                 SectionLabel("Needs you")
                                 Spacer()
-                                Button("All threads") {
-                                    // Navigate to threads tab
+                                Button(action: {
+                                    selectedTab = 3
+                                }) {
+                                    Text("All threads")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(LinkMeColors.t700)
                                 }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(LinkMeColors.t700)
                             }
 
                             VStack(spacing: 10) {
-                                NeedsYouItem(
-                                    personName: "Marcus Chen",
-                                    message: "Waiting on your data-infra memo"
-                                )
-                                NeedsYouItem(
-                                    personName: "Sarah Johnson",
-                                    message: "Promised product demo feedback"
-                                )
+                                ForEach(nudges.prefix(2), id: \.id) { nudge in
+                                    NeedsYouCard(nudge: nudge, navigationManager: navigationManager)
+                                }
                             }
                         }
 
-                        // RECENT PEOPLE
-                        VStack(spacing: 10) {
-                            SectionLabel("Recent")
+                        // RECENT CAPTURES (only show if 3+ contacts)
+                        if people.count >= 3 {
+                            VStack(spacing: 10) {
+                                SectionLabel("Recent captures")
 
-                            HStack(spacing: 12) {
-                                ForEach(people.prefix(3), id: \.id) { person in
-                                    VStack(spacing: 8) {
-                                        Avatar(name: person.name, size: 56)
+                                ScrollViewReader { proxy in
+                                    HStack(spacing: 10) {
+                                        Button(action: {
+                                            withAnimation {
+                                                if !people.isEmpty {
+                                                    proxy.scrollTo(people[0].id, anchor: .leading)
+                                                }
+                                            }
+                                        }) {
+                                            Image(systemName: "chevron.left")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.s500)
+                                                .frame(width: 32, height: 32)
+                                                .background(LinkMeColors.surface)
+                                                .cornerRadius(8)
+                                                .border(LinkMeColors.s200, width: 1)
+                                        }
 
-                                        Text(person.name.split(separator: " ")[0])
-                                            .font(.system(size: 13, weight: .semibold, design: .default))
-                                            .foregroundColor(LinkMeColors.ink)
-                                            .lineLimit(1)
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 10) {
+                                                ForEach(people.prefix(6), id: \.id) { person in
+                                                    Button(action: {
+                                                        navigationManager.navigationPath.append(person)
+                                                    }) {
+                                                        Card(padding: 12) {
+                                                            VStack(spacing: 8) {
+                                                                Avatar(name: person.name, size: 48, tone: person.tone)
+
+                                                                VStack(spacing: 2) {
+                                                                    Text(person.name.split(separator: " ")[0])
+                                                                        .font(.system(size: 13, weight: .semibold, design: .default))
+                                                                        .foregroundColor(LinkMeColors.ink)
+                                                                        .lineLimit(1)
+
+                                                                    Text(person.company)
+                                                                        .font(.system(size: 11, design: .default))
+                                                                        .foregroundColor(LinkMeColors.s500)
+                                                                        .lineLimit(1)
+                                                                }
+                                                            }
+                                                            .frame(width: 84)
+                                                            .frame(maxHeight: .infinity, alignment: .top)
+                                                        }
+                                                        .frame(width: 108)
+                                                        .id(person.id)
+                                                    }
+                                                }
+
+                                                Button(action: {
+                                                    // Navigate to capture
+                                                }) {
+                                                    VStack(spacing: 8) {
+                                                        Image(systemName: "mic")
+                                                            .font(.system(size: 24, weight: .semibold))
+                                                            .foregroundColor(LinkMeColors.t700)
+
+                                                        Text("Capture")
+                                                            .font(.system(size: 12, weight: .semibold, design: .default))
+                                                            .foregroundColor(LinkMeColors.t700)
+                                                    }
+                                                    .frame(width: 108, height: 128)
+                                                    .background(LinkMeColors.t50)
+                                                    .border(LinkMeColors.t200, width: 1.5)
+                                                    .cornerRadius(20)
+                                                    .id("capture")
+                                                }
+                                            }
+                                            .padding(.horizontal, 0)
+                                        }
+
+                                        Button(action: {
+                                            withAnimation {
+                                                proxy.scrollTo("capture", anchor: .trailing)
+                                            }
+                                        }) {
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.s500)
+                                                .frame(width: 32, height: 32)
+                                                .background(LinkMeColors.surface)
+                                                .cornerRadius(8)
+                                                .border(LinkMeColors.s200, width: 1)
+                                        }
                                     }
-                                    .frame(maxWidth: .infinity)
                                 }
                             }
                         }
@@ -108,6 +181,9 @@ struct TodayView: View {
 // MARK: - TopBar
 struct TopBar: View {
     let appState: AppState
+    let navigationManager: NavigationManager
+    @Binding var selectedTab: Int
+    @State private var threadCount = 3
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -145,7 +221,9 @@ struct TopBar: View {
             Spacer()
 
             HStack(spacing: 10) {
-                Button(action: {}) {
+                Button(action: {
+                    selectedTab = 1
+                }) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(LinkMeColors.s600)
@@ -155,8 +233,10 @@ struct TopBar: View {
                         .border(LinkMeColors.s200, width: 1)
                 }
 
-                ZStack(alignment: .topTrailing) {
-                    Button(action: {}) {
+                Button(action: {
+                    selectedTab = 3
+                }) {
+                    ZStack(alignment: .topTrailing) {
                         Image(systemName: "bell")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -164,17 +244,17 @@ struct TopBar: View {
                             .background(LinkMeColors.surface)
                             .cornerRadius(12)
                             .border(LinkMeColors.s200, width: 1)
-                    }
 
-                    Circle()
-                        .fill(LinkMeColors.t500)
-                        .frame(width: 17, height: 17)
-                        .overlay(
-                            Text("3")
-                                .font(.system(size: 10.5, weight: .bold, design: .default))
-                                .foregroundColor(.white)
-                        )
-                        .offset(x: 4, y: -4)
+                        Circle()
+                            .fill(LinkMeColors.t500)
+                            .frame(width: 17, height: 17)
+                            .overlay(
+                                Text(String(threadCount))
+                                    .font(.system(size: 10.5, weight: .bold, design: .default))
+                                    .foregroundColor(.white)
+                            )
+                            .offset(x: 4, y: -4)
+                    }
                 }
             }
         }
@@ -305,31 +385,37 @@ struct LaterTodayItem: View {
     }
 }
 
-// MARK: - Needs You Item
-struct NeedsYouItem: View {
-    let personName: String
-    let message: String
+// MARK: - Needs You Card
+struct NeedsYouCard: View {
+    let nudge: NudgeModel
+    let navigationManager: NavigationManager
+    @State private var person: PersonModel?
 
     var body: some View {
         Card(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    Avatar(name: personName, size: 40)
+            HStack(spacing: 12) {
+                Avatar(name: person?.name ?? nudge.personId, size: 40)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(personName)
-                            .font(.system(size: 14, weight: .semibold, design: .default))
-                            .foregroundColor(LinkMeColors.ink)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(nudge.title)
+                        .font(.system(size: 14.5, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                        .lineLimit(2)
 
-                        Text(message)
-                            .font(.system(size: 13, design: .default))
-                            .foregroundColor(LinkMeColors.s600)
-                            .lineLimit(1)
-                    }
-
-                    Spacer()
+                    Text(nudge.detail)
+                        .font(.system(size: 12.5, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
+                        .lineLimit(2)
                 }
+
+                Spacer()
+
+                Chip(nudge.cta, tone: .ink)
             }
+            .frame(maxHeight: .infinity, alignment: .center)
+        }
+        .onAppear {
+            person = MockDataManager.mockPeople.first { $0.id == nudge.personId }
         }
     }
 }
