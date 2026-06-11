@@ -282,44 +282,47 @@ struct WaveformView: View {
 // MARK: - Processing Phase
 struct ProcessingPhaseView: View {
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer()
+        TimelineView(.animation) { timeline in
+            let rotation = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) * 180
 
-            VStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .stroke(LinkMeColors.t100, lineWidth: 3)
-                        .frame(width: 78, height: 78)
+            VStack(spacing: 22) {
+                Spacer()
 
-                    Circle()
-                        .trim(from: 0, to: 0.7)
-                        .stroke(LinkMeColors.t500, lineWidth: 3)
-                        .frame(width: 78, height: 78)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 0.9).repeatForever(autoreverses: false), value: UUID())
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .stroke(LinkMeColors.t100, lineWidth: 3)
+                            .frame(width: 78, height: 78)
 
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 30, weight: .semibold))
-                        .foregroundColor(LinkMeColors.t600)
+                        Circle()
+                            .trim(from: 0, to: 0.7)
+                            .stroke(LinkMeColors.t500, lineWidth: 3)
+                            .frame(width: 78, height: 78)
+                            .rotationEffect(.degrees(rotation - 90))
+
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundColor(LinkMeColors.t600)
+                    }
+
+                    VStack(spacing: 6) {
+                        Text("Structuring the person…")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundColor(LinkMeColors.ink)
+
+                        Text("Apple's on-device model is turning your note\ninto a record. This never leaves your iPhone.")
+                            .font(.system(size: 13.5, weight: .regular, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(2)
+                    }
                 }
 
-                VStack(spacing: 6) {
-                    Text("Structuring the person…")
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundColor(LinkMeColors.ink)
-
-                    Text("Apple's on-device model is turning your note\ninto a record. This never leaves your iPhone.")
-                        .font(.system(size: 13.5, weight: .regular, design: .default))
-                        .foregroundColor(LinkMeColors.s500)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
-                }
+                Spacer()
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 30)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 30)
     }
 }
 
