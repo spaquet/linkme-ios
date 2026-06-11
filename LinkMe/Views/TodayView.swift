@@ -129,32 +129,17 @@ struct TodayView: View {
                                                         .id(person.id)
                                                     }
                                                 }
-
-                                                Button(action: {
-                                                    // Navigate to capture
-                                                }) {
-                                                    VStack(spacing: 8) {
-                                                        Image(systemName: "mic")
-                                                            .font(.system(size: 24, weight: .semibold))
-                                                            .foregroundColor(LinkMeColors.t700)
-
-                                                        Text("Capture")
-                                                            .font(.system(size: 12, weight: .semibold, design: .default))
-                                                            .foregroundColor(LinkMeColors.t700)
-                                                    }
-                                                    .frame(width: 108, height: 128)
-                                                    .background(LinkMeColors.t50)
-                                                    .border(LinkMeColors.t200, width: 1.5)
-                                                    .cornerRadius(20)
-                                                    .id("capture")
-                                                }
                                             }
                                             .padding(.horizontal, 0)
                                         }
 
                                         Button(action: {
                                             withAnimation {
-                                                proxy.scrollTo("capture", anchor: .trailing)
+                                                if people.count >= 6 {
+                                                    proxy.scrollTo(people[5].id, anchor: .trailing)
+                                                } else if !people.isEmpty {
+                                                    proxy.scrollTo(people[people.count - 1].id, anchor: .trailing)
+                                                }
                                             }
                                         }) {
                                             Image(systemName: "chevron.right")
