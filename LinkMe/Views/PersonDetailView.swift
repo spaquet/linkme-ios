@@ -3,7 +3,6 @@ import SwiftUI
 struct PersonDetailView: View {
     let person: PersonModel
     let navigationManager: NavigationManager
-    @Environment(\.dismiss) var dismiss
     @State private var threads: [ThreadModel] = []
     @State private var sharedPeople: [PersonModel] = []
 
@@ -16,11 +15,7 @@ struct PersonDetailView: View {
                 // Header with back button and actions
                 HStack(spacing: 12) {
                     Button(action: {
-                        if navigationManager.navigationPath.count > 1 {
-                            navigationManager.navigationPath.removeLast()
-                        } else {
-                            dismiss()
-                        }
+                        navigationManager.navigationPath.removeLast()
                     }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))

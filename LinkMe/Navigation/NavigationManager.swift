@@ -2,13 +2,12 @@ import Foundation
 
 @Observable
 class NavigationManager {
-    var selectedPerson: PersonModel?
     var showCaptureSheet = false
     var showBriefingSheet: PersonModel?
     var navigationPath: [PersonModel] = []
 
     func openPersonDetail(_ person: PersonModel) {
-        selectedPerson = person
+        navigationPath.append(person)
     }
 
     func openCapture() {
@@ -20,7 +19,6 @@ class NavigationManager {
     }
 
     func closeAll() {
-        selectedPerson = nil
         showCaptureSheet = false
         showBriefingSheet = nil
         navigationPath = []

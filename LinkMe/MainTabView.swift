@@ -25,11 +25,8 @@ struct MainTabView: View {
 
                 CustomTabBar(selectedTab: $selectedTab, navigationManager: navigationManager)
             }
-            .navigationDestination(item: $navigationManager.selectedPerson) { person in
+            .navigationDestination(for: PersonModel.self) { person in
                 PersonDetailView(person: person, navigationManager: navigationManager)
-                    .navigationDestination(for: PersonModel.self) { person in
-                        PersonDetailView(person: person, navigationManager: navigationManager)
-                    }
             }
         }
         .sheet(isPresented: $navigationManager.showCaptureSheet) {
