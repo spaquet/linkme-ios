@@ -300,7 +300,7 @@ struct ProcessingPhaseView: View {
                             .frame(width: 78, height: 78)
                             .rotationEffect(.degrees(rotation - 90))
 
-                        Image(systemName: "sparkle")
+                        Image(systemName: "sparkles")
                             .font(.system(size: 30, weight: .semibold))
                             .foregroundColor(LinkMeColors.t600)
                     }
