@@ -25,6 +25,19 @@ struct PersonDetailView: View {
                             .cornerRadius(8)
                     }
 
+                    if navigationManager.navigationPath.count > 1 {
+                        Button(action: {
+                            navigationManager.navigationPath.removeAll()
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s600)
+                                .frame(width: 32, height: 32)
+                                .background(LinkMeColors.surface)
+                                .cornerRadius(8)
+                        }
+                    }
+
                     Spacer()
 
                     Button(action: {}) {
