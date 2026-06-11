@@ -61,7 +61,7 @@ struct FollowupView: View {
                     VStack(spacing: 14) {
                         // Recipient card
                         Card(padding: 14) {
-                            HStack(spacing: 12) {
+                            HStack(alignment: .top, spacing: 12) {
                                 Avatar(name: person.name, size: 44, tone: person.tone)
 
                                 VStack(alignment: .leading, spacing: 3) {
@@ -75,6 +75,7 @@ struct FollowupView: View {
                                         .foregroundColor(LinkMeColors.s500)
                                         .multilineTextAlignment(.leading)
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
                                 Spacer()
 

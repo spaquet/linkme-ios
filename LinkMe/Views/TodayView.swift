@@ -80,6 +80,7 @@ struct TodayView: View {
                         if people.count >= 3 {
                             VStack(spacing: 10) {
                                 SectionLabel("Recent captures")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
                                 ScrollViewReader { proxy in
                                     HStack(spacing: 10) {
