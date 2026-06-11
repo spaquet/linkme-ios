@@ -1,11 +1,16 @@
 import SwiftUI
+import Combine
 
 struct CaptureView: View {
     @State private var speechManager = SpeechRecognitionManager()
     @State private var aiManager = AIExtractionManager()
-    @State private var isShowingResult = false
+    @State private var phase: CapturePhase = .idle
+    @State private var seconds = 0
+    @State private var displayedWords = 0
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var timerTask: Task<Void, Never>?
+    @State private var wordRevealTask: Task<Void, Never>?
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -15,38 +20,65 @@ struct CaptureView: View {
 
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    Button("Cancel") {
-                        dismiss()
+                HStack(spacing: 0) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s600)
+                            .frame(width: 38, height: 38)
+                            .background(LinkMeColors.surface)
+                            .cornerRadius(10)
+                            .border(LinkMeColors.s200, width: 1)
                     }
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(LinkMeColors.t700)
 
                     Spacer()
 
-                    Text("New Note")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(LinkMeColors.ink)
+                    if phase == .result {
+                        OnDeviceChip("Stayed on this device")
+                    } else {
+                        OnDeviceChip("Recording on device")
+                    }
 
                     Spacer()
 
-                    Button("") {}
-                        .disabled(true)
+                    // Empty space for balance
+                    Rectangle()
+                        .fill(.clear)
+                        .frame(width: 38, height: 38)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+                .padding(.top, LinkMeLayout.statusBarHeight - 20)
 
-                // Content
-                if isShowingResult, let data = aiManager.extractedData {
-                    ExtractionResultView(data: data, onDone: {
-                        dismiss()
-                    })
-                } else {
-                    CaptureContentView(
-                        speechManager: speechManager,
-                        aiManager: aiManager,
-                        isShowingResult: $isShowingResult
-                    )
+                // Content based on phase
+                Group {
+                    switch phase {
+                    case .idle:
+                        EmptyView()
+
+                    case .listening:
+                        ListeningPhaseView(
+                            seconds: seconds,
+                            displayedWords: displayedWords,
+                            transcript: speechManager.recognizedText,
+                            isRecording: speechManager.isRecording,
+                            onStop: stopListening
+                        )
+
+                    case .processing:
+                        ProcessingPhaseView()
+
+                    case .result:
+                        if let data = aiManager.extractedData {
+                            ResultPhaseView(
+                                data: data,
+                                transcript: speechManager.recognizedText,
+                                onSave: {
+                                    dismiss()
+                                }
+                            )
+                        }
+                    }
                 }
 
                 Spacer()
@@ -57,17 +89,24 @@ struct CaptureView: View {
                 if !authorized {
                     errorMessage = "Microphone access denied. Enable in Settings > LinkMe > Microphone"
                     showErrorAlert = true
+                } else {
+                    startListening()
                 }
             }
         }
-        .onChange(of: speechManager.error) { oldValue, newValue in
+        .onDisappear {
+            timerTask?.cancel()
+            wordRevealTask?.cancel()
+            speechManager.stopRecording()
+        }
+        .onChange(of: speechManager.error) { _, newValue in
             if let error = newValue {
                 errorMessage = error
                 showErrorAlert = true
                 speechManager.error = nil
             }
         }
-        .onChange(of: aiManager.error) { oldValue, newValue in
+        .onChange(of: aiManager.error) { _, newValue in
             if let error = newValue {
                 errorMessage = error
                 showErrorAlert = true
@@ -80,176 +119,377 @@ struct CaptureView: View {
             Text(errorMessage)
         }
     }
-}
 
-// MARK: - Capture Content
-struct CaptureContentView: View {
-    let speechManager: SpeechRecognitionManager
-    let aiManager: AIExtractionManager
-    @Binding var isShowingResult: Bool
+    private func startListening() {
+        phase = .listening
+        seconds = 0
+        displayedWords = 0
+        speechManager.startRecording()
 
-    var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 20) {
-                // Waveform animation
-                if speechManager.isRecording {
-                    HStack(spacing: 4) {
-                        ForEach(0..<12, id: \.self) { i in
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .frame(width: 4)
-                                .frame(height: CGFloat([40, 30, 35, 28, 38, 25, 32, 29, 36, 27, 34, 31][i]))
-                                .scaleEffect(y: Double.random(in: 0.5...1.0), anchor: .center)
-                                .animation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true), value: speechManager.isRecording)
-                        }
-                    }
-                    .frame(height: 56)
-                    .padding(.vertical, 10)
-                } else {
-                    Text("Tap to speak")
-                        .font(.system(size: 15, design: .default))
-                        .foregroundColor(LinkMeColors.s400)
-                        .frame(height: 56, alignment: .center)
-                }
-
-                // Transcription
-                if !speechManager.recognizedText.isEmpty {
-                    Text(speechManager.recognizedText)
-                        .font(.system(size: 16, design: .default))
-                        .foregroundColor(LinkMeColors.s700)
-                        .lineLimit(4)
-                        .padding(.horizontal, 16)
-                } else {
-                    Text("You just met someone. Speak one sentence about them.")
-                        .font(.system(size: 15, design: .default))
-                        .foregroundColor(LinkMeColors.s500)
-                        .lineLimit(2)
-                        .padding(.horizontal, 16)
-                }
+        timerTask = Task {
+            while phase == .listening {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                seconds += 1
             }
-
-            // Mic button
-            Button(action: {
-                if speechManager.isRecording {
-                    speechManager.stopRecording()
-                } else {
-                    speechManager.startRecording()
-                }
-            }) {
-                ZStack {
-                    if speechManager.isRecording {
-                        Circle()
-                            .fill(LinkMeColors.ink)
-                    } else {
-                        Circle()
-                            .fill(LinearGradient(
-                                gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
-                                startPoint: .init(x: 0, y: 0),
-                                endPoint: .init(x: 0.5, y: 0.5)
-                            ))
-                    }
-
-                    if !speechManager.isRecording {
-                        Circle()
-                            .stroke(LinkMeColors.t400, lineWidth: 2)
-                            .padding(5)
-                            .opacity(0.5)
-                            .scaleEffect(1.4)
-                            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: !speechManager.isRecording)
-                    }
-
-                    Image(systemName: speechManager.isRecording ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 30, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                .frame(width: 76, height: 76)
-            }
-            .disabled(aiManager.isExtracting)
-
-            // Extract button
-            if !speechManager.recognizedText.isEmpty && !speechManager.isRecording {
-                PrimaryButton(
-                    aiManager.isExtracting ? "Extracting..." : "Create Note",
-                    tone: .teal
-                ) {
-                    Task {
-                        await aiManager.extractFromTranscription(speechManager.recognizedText)
-                        withAnimation {
-                            isShowingResult = true
-                        }
-                    }
-                }
-                .disabled(aiManager.isExtracting)
-            }
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 24)
+
+        wordRevealTask = Task {
+            while phase == .listening {
+                try? await Task.sleep(nanoseconds: 165_000_000) // 165ms
+                let words = speechManager.recognizedText.split(separator: " ")
+                if displayedWords < words.count {
+                    displayedWords += 1
+                }
+            }
+        }
+    }
+
+    private func stopListening() {
+        timerTask?.cancel()
+        wordRevealTask?.cancel()
+        speechManager.stopRecording()
+        phase = .processing
+
+        Task {
+            try? await Task.sleep(nanoseconds: 1_600_000_000) // 1.6 seconds
+            await aiManager.extractFromTranscription(speechManager.recognizedText)
+            phase = .result
+        }
     }
 }
 
-// MARK: - Extraction Result
-struct ExtractionResultView: View {
-    let data: ExtractedPersonData
-    let onDone: () -> Void
+enum CapturePhase {
+    case idle
+    case listening
+    case processing
+    case result
+}
+
+// MARK: - Listening Phase
+struct ListeningPhaseView: View {
+    let seconds: Int
+    let displayedWords: Int
+    let transcript: String
+    let isRecording: Bool
+    let onStop: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            Card(padding: 0) {
+        VStack(spacing: 0) {
+            VStack(spacing: 26) {
+                // Timer
+                VStack(spacing: 6) {
+                    Text(String(format: "0:%02d", seconds))
+                        .font(.system(size: 15, weight: .regular, design: .monospaced))
+                        .foregroundColor(LinkMeColors.t700)
+
+                    Text("Listening…")
+                        .font(.system(size: 23, weight: .semibold))
+                        .tracking(-0.02)
+                        .foregroundColor(LinkMeColors.ink)
+                }
+
+                // Waveform
+                WaveformView(active: isRecording)
+
+                // Transcript with cursor
                 VStack(spacing: 0) {
-                    HStack(spacing: 13) {
-                        Avatar(name: data.name ?? "Unknown", size: 50)
+                    let words = transcript.split(separator: " ")
+                    let shown = words.prefix(displayedWords).joined(separator: " ")
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(data.name ?? "Name not found")
-                                .font(.system(size: 18, weight: .semibold, design: .default))
-                                .foregroundColor(LinkMeColors.ink)
+                    HStack(spacing: 2) {
+                        Text(shown)
+                            .font(.system(size: 17, weight: .regular, design: .default))
+                            .lineLimit(4)
+                            .foregroundColor(LinkMeColors.s600)
 
-                            if let company = data.company {
-                                Text("\(data.role ?? "Role") · \(company)")
-                                    .font(.system(size: 13, design: .default))
-                                    .foregroundColor(LinkMeColors.s500)
-                            }
+                        if displayedWords < words.count {
+                            Rectangle()
+                                .fill(LinkMeColors.t500)
+                                .frame(width: 2, height: 18)
+                                .opacity(0.6)
                         }
-
-                        Spacer()
-
-                        OnDeviceChip()
                     }
-                    .padding(16)
-
-                    if let context = data.liveContext {
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            SectionLabel("Live context")
-                            Text(context)
-                                .font(.system(size: 14, design: .default))
-                                .foregroundColor(LinkMeColors.s700)
-                                .lineLimit(3)
-                        }
-                        .padding(13)
-                    }
+                    .frame(minHeight: 120, alignment: .center)
+                    .multilineTextAlignment(.center)
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .center)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 28)
 
-            PrimaryButton("Save Note", tone: .ink) {
-                onDone()
+            VStack(spacing: 14) {
+                // Stop button
+                Button(action: onStop) {
+                    ZStack {
+                        Circle()
+                            .fill(LinkMeColors.ink)
+
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(LinkMeColors.surface)
+                            .frame(width: 24, height: 24)
+                    }
+                    .frame(width: 72, height: 72)
+                    .shadow(color: LinkMeColors.ink.opacity(0.22), radius: 12, y: 12)
+                }
+
+                Text("Tap to stop · a 10-second note is all it takes")
+                    .font(.system(size: 12.5, weight: .regular, design: .default))
+                    .foregroundColor(LinkMeColors.s400)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.bottom, 28)
+        }
+    }
+}
+
+struct WaveformView: View {
+    let active: Bool
+    let barCount = 34
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) * .pi
+
+            HStack(spacing: 4) {
+                ForEach(0..<barCount, id: \.self) { i in
+                    let mid = abs(CGFloat(i) - CGFloat(barCount) / 2) / (CGFloat(barCount) / 2)
+                    let baseHeight = 0.9 - mid * 0.65
+                    let maxHeight = 64 * baseHeight + 10
+                    let minHeight = maxHeight * 0.35
+
+                    // Wave effect: each bar oscillates based on time and position
+                    let waveOffset = sin(phase + CGFloat(i) * 0.2) * 0.5 + 0.5
+                    let height = minHeight + (maxHeight - minHeight) * waveOffset
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [LinkMeColors.t400, LinkMeColors.t600]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 4, height: height)
+                        .opacity(active ? 1 : 0.3)
+                }
+            }
+            .frame(height: 96)
+        }
+        .padding(.horizontal, 0)
+    }
+}
+
+// MARK: - Processing Phase
+struct ProcessingPhaseView: View {
+    var body: some View {
+        VStack(spacing: 22) {
+            Spacer()
+
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .stroke(LinkMeColors.t100, lineWidth: 3)
+                        .frame(width: 78, height: 78)
+
+                    Circle()
+                        .trim(from: 0, to: 0.7)
+                        .stroke(LinkMeColors.t500, lineWidth: 3)
+                        .frame(width: 78, height: 78)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 0.9).repeatForever(autoreverses: false), value: UUID())
+
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundColor(LinkMeColors.t600)
+                }
+
+                VStack(spacing: 6) {
+                    Text("Structuring the person…")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundColor(LinkMeColors.ink)
+
+                    Text("Apple's on-device model is turning your note\ninto a record. This never leaves your iPhone.")
+                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
             }
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 24)
+        .padding(.horizontal, 30)
+    }
+}
+
+// MARK: - Result Phase
+struct ResultPhaseView: View {
+    let data: ExtractedPersonData
+    let transcript: String
+    let onSave: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(LinkMeColors.t600)
+
+                    Text("Drafted on device · review & save")
+                        .font(.system(size: 12, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.t700)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+
+                Card(padding: 0) {
+                    VStack(spacing: 0) {
+                        // Identity
+                        HStack(spacing: 14) {
+                            Avatar(
+                                name: data.name ?? "Unknown",
+                                size: 56,
+                                tone: "teal"
+                            )
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(data.name ?? "Name not found")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .tracking(-0.02)
+                                    .foregroundColor(LinkMeColors.ink)
+
+                                Text("\(data.role ?? "Unknown") · \(data.company ?? "Unknown")")
+                                    .font(.system(size: 13.5, weight: .regular, design: .default))
+                                    .foregroundColor(LinkMeColors.s500)
+
+                                HStack(spacing: 6) {
+                                    Chip("Founder", tone: .teal)
+                                    Chip("Healthtech", tone: .teal)
+                                    Chip("Seed", tone: .teal)
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .padding(18)
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 13) {
+                            ExtractFieldView(
+                                icon: "building.2",
+                                label: "Live context",
+                                text: data.liveContext ?? "No context extracted"
+                            )
+
+                            Divider()
+                                .padding(.vertical, 0)
+
+                            ExtractFieldView(
+                                icon: "arrowshape.forward.fill",
+                                label: "Follow-up",
+                                text: data.followUp ?? "No follow-up found"
+                            )
+
+                            Divider()
+                                .padding(.vertical, 0)
+
+                            ExtractFieldView(
+                                icon: "heart.fill",
+                                label: "Personal detail",
+                                text: data.personalDetail ?? "No personal details"
+                            )
+                        }
+                        .padding(18)
+                    }
+                }
+
+                // Original transcript
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "mic")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s400)
+
+                        Text("From your \(transcript.split(separator: " ").count)-second note")
+                            .font(.system(size: 11.5, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.s400)
+                    }
+
+                    Text("\"\(transcript)\"")
+                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
+                        .italic()
+                        .lineSpacing(2)
+                        .padding(14)
+                        .background(LinkMeColors.s50)
+                        .border(LinkMeColors.s200, width: 1)
+                        .cornerRadius(14)
+                }
+                .padding(.horizontal, 18)
+
+                HStack(spacing: 10) {
+                    Button(action: {}) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(LinkMeColors.t700)
+                            .frame(width: 52, height: 44)
+                            .background(LinkMeColors.surface)
+                            .border(LinkMeColors.s200, width: 1)
+                            .cornerRadius(10)
+                    }
+
+                    PrimaryButton("Save to graph", tone: .teal, action: onSave)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+            }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 0)
+        }
+    }
+}
+
+struct ExtractFieldView: View {
+    let icon: String
+    let label: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(LinkMeColors.t700)
+                .frame(width: 30, height: 30)
+                .background(LinkMeColors.t50)
+                .border(LinkMeColors.t200, width: 1)
+                .cornerRadius(9)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(label)
+                        .font(.system(size: 10.5, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.s400)
+
+                    Spacer()
+
+                    Image(systemName: "pencil")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(LinkMeColors.s300)
+                }
+
+                Text(text)
+                    .font(.system(size: 14.5, weight: .regular, design: .default))
+                    .foregroundColor(LinkMeColors.s700)
+                    .lineSpacing(1)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+        .padding(.vertical, 13)
     }
 }
 
