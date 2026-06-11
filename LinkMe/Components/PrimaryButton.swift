@@ -5,6 +5,7 @@ struct PrimaryButton: View {
     let action: () -> Void
     let tone: ButtonTone
     let fullWidth: Bool
+    @Environment(\.isEnabled) private var isEnabled
 
     enum ButtonTone {
         case ink
@@ -19,7 +20,10 @@ struct PrimaryButton: View {
     }
 
     private var backgroundColor: Color {
-        tone == .teal ? LinkMeColors.t500 : LinkMeColors.ink
+        if !isEnabled {
+            return tone == .teal ? LinkMeColors.t500 : LinkMeColors.ink
+        }
+        return tone == .teal ? LinkMeColors.t500 : LinkMeColors.ink
     }
 
     var body: some View {
@@ -32,6 +36,7 @@ struct PrimaryButton: View {
         }
         .background(backgroundColor)
         .cornerRadius(LinkMeLayout.cornerRadius)
+        .opacity(isEnabled ? 1.0 : 0.5)
     }
 }
 

@@ -89,12 +89,23 @@ struct OnboardingView: View {
                             withAnimation {
                                 currentSlide += 1
                             }
-                        } else {
+                        } else if isFormValid {
                             saveUser()
                             onDone()
                         }
                     }
                     .disabled(currentSlide == 3 && !isFormValid)
+
+                    if currentSlide == 3 && !isFormValid {
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("First name and email are required")
+                                .font(.system(size: 12, weight: .regular))
+                        }
+                        .foregroundColor(LinkMeColors.s500)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
 
                     if currentSlide == 0 {
                         Button("I already have a profile") {
