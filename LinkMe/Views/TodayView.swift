@@ -392,27 +392,33 @@ struct NeedsYouCard: View {
     @State private var person: PersonModel?
 
     var body: some View {
-        Card(padding: 14) {
-            HStack(spacing: 12) {
-                Avatar(name: person?.name ?? nudge.personId, size: 40)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(nudge.title)
-                        .font(.system(size: 14.5, weight: .semibold, design: .default))
-                        .foregroundColor(LinkMeColors.ink)
-                        .lineLimit(2)
-
-                    Text(nudge.detail)
-                        .font(.system(size: 12.5, design: .default))
-                        .foregroundColor(LinkMeColors.s500)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                Chip(nudge.cta, tone: .ink)
+        Button(action: {
+            if let person = person {
+                navigationManager.openFollowup(person, nudge: nudge)
             }
-            .frame(maxHeight: .infinity, alignment: .center)
+        }) {
+            Card(padding: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    Avatar(name: person?.name ?? nudge.personId, size: 40)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(nudge.title)
+                            .font(.system(size: 14.5, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Text(nudge.detail)
+                            .font(.system(size: 12.5, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Chip(nudge.cta, tone: .ink)
+                }
+            }
         }
         .onAppear {
             person = MockDataManager.mockPeople.first { $0.id == nudge.personId }

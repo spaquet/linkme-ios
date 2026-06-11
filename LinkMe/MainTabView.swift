@@ -1,5 +1,11 @@
 import SwiftUI
 
+struct FollowupSheetData: Identifiable {
+    let id = UUID()
+    let person: PersonModel
+    let nudge: NudgeModel?
+}
+
 struct MainTabView: View {
     let appState: AppState
     @State private var selectedTab = 0
@@ -34,6 +40,15 @@ struct MainTabView: View {
         }
         .sheet(item: $navigationManager.showBriefingSheet) { person in
             BriefingView(person: person)
+        }
+        .sheet(item: .constant(navigationManager.showFollowupSheet.map { FollowupSheetData(person: $0.person, nudge: $0.nudge) })) { data in
+            FollowupView(
+                person: data.person,
+                nudge: data.nudge,
+                onDismiss: {
+                    navigationManager.showFollowupSheet = nil
+                }
+            )
         }
     }
 }

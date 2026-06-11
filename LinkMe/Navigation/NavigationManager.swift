@@ -4,6 +4,7 @@ import Foundation
 class NavigationManager {
     var showCaptureSheet = false
     var showBriefingSheet: PersonModel?
+    var showFollowupSheet: (person: PersonModel, nudge: NudgeModel?)?
     var navigationPath: [PersonModel] = []
 
     func openPersonDetail(_ person: PersonModel) {
@@ -18,9 +19,14 @@ class NavigationManager {
         showBriefingSheet = person
     }
 
+    func openFollowup(_ person: PersonModel, nudge: NudgeModel? = nil) {
+        showFollowupSheet = (person, nudge)
+    }
+
     func closeAll() {
         showCaptureSheet = false
         showBriefingSheet = nil
+        showFollowupSheet = nil
         navigationPath = []
     }
 }

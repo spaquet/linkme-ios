@@ -25,6 +25,7 @@ enum MockDataManager {
         ]
         people[0].personal = "Passionate about hiking. Recently climbed Denali. Coffee enthusiast — only drinks single-origin Ethiopian."
         people[0].shared = ["Sarah Johnson", "Alex Rivera"]
+        people[0].followup = "Marcus — great catching up over coffee. Sending the updated metrics deck now; the Q2 retention curve is the part I'd flag. Also happy to make that intro to Naomi at Cedar whenever useful."
         people[0].timeline = [
             TimelineEntry(kind: "capture", label: "Voice note", date: "Today", detail: "Leading venture fund close this month. Interested in data infra space."),
             TimelineEntry(kind: "meet", label: "Coffee meeting", date: "5 days ago", detail: "Discussed market opportunity in data tooling"),
@@ -46,6 +47,7 @@ enum MockDataManager {
         ]
         people[1].personal = "New parent. Loves photography. Recently won local photo competition. Lives in Brooklyn."
         people[1].shared = ["Marcus Chen", "Chris Wang"]
+        people[1].followup = "Sarah — congrats on the Series A. Really excited to see the product launch ship in Q3. Happy to help with early customer intros if useful."
         people[1].timeline = [
             TimelineEntry(kind: "capture", label: "Voice note", date: "3 months ago", detail: "Product launch planned for Q3"),
             TimelineEntry(kind: "meet", label: "Product review call", date: "2 months ago", detail: nil),
@@ -66,6 +68,7 @@ enum MockDataManager {
         ]
         people[2].personal = "Avid rock climber. Competes in indoor competitions. Vegan. Interested in sustainable business practices."
         people[2].shared = ["Marcus Chen"]
+        people[2].followup = "Alex — great meeting you. Would love to keep the conversation going on the Series B round."
         people[2].timeline = [
             TimelineEntry(kind: "capture", label: "Voice note", date: "11 months ago", detail: "Series B fundraising in progress"),
             TimelineEntry(kind: "meet", label: "Initial meeting", date: "11 months ago", detail: nil),
@@ -85,6 +88,7 @@ enum MockDataManager {
         ]
         people[3].personal = "Marathon runner. Recently completed Boston Marathon. Coffee shop nomad. Active on Twitter."
         people[3].shared = ["Sarah Johnson"]
+        people[3].followup = "Jamie — connecting you with Marcus at Meridian. You'll definitely click on the fintech side."
         people[3].timeline = [
             TimelineEntry(kind: "meet", label: "Pitch meeting", date: "1 year ago", detail: nil),
         ]
@@ -103,6 +107,7 @@ enum MockDataManager {
         ]
         people[4].personal = "Board game enthusiast. Hosts monthly game nights. Enjoys woodworking in spare time."
         people[4].shared = ["Sarah Johnson"]
+        people[4].followup = "Chris — really enjoyed the lunch. Let's stay in touch on partnership opportunities."
         people[4].timeline = [
             TimelineEntry(kind: "capture", label: "Voice note", date: "2 months ago", detail: "Partnership expansion discussion"),
             TimelineEntry(kind: "meet", label: "Lunch meeting", date: "2 months ago", detail: nil),

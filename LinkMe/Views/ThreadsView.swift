@@ -133,7 +133,7 @@ struct NudgeCard: View {
                 HStack(spacing: 9) {
                     Button(action: {
                         if let person = person {
-                            navigationManager.openPersonDetail(person)
+                            navigationManager.openFollowup(person, nudge: nudge)
                         }
                     }) {
                         HStack(spacing: 7) {

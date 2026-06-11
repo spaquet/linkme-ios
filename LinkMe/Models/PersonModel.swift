@@ -20,6 +20,7 @@ struct PersonModel: Identifiable, Hashable {
     var timeline: [TimelineEntry] = []
     var location: String = ""
     var met: String = "Met once"
+    var followup: String = ""
 
     init(id: String = UUID().uuidString, name: String, company: String, role: String) {
         self.id = id
