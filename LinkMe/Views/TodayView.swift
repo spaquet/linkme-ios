@@ -444,5 +444,6 @@ extension Text {
         company: "Meridian Ventures",
         cards: [defaultCard]
     )
-    return TodayView(navigationManager: NavigationManager(), appState: appState)
+    @State var selectedTab = 0
+    return TodayView(navigationManager: NavigationManager(), appState: appState, selectedTab: $selectedTab)
 }

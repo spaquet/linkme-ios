@@ -9,7 +9,7 @@ struct MainTabView: View {
         NavigationStack(path: $navigationManager.navigationPath) {
             ZStack(alignment: .bottom) {
                 TabView(selection: $selectedTab) {
-                    TodayView(navigationManager: navigationManager, appState: appState)
+                    TodayView(navigationManager: navigationManager, appState: appState, selectedTab: $selectedTab)
                         .tag(0)
 
                     PeopleView(navigationManager: navigationManager)
