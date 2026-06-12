@@ -561,9 +561,11 @@ struct CardEditView: View {
         .sheet(isPresented: $showLocationSheet) {
             LocationPickerSheet(location: $location, isPresented: $showLocationSheet)
                 .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showTimezoneSheet) {
             TimezonePickerSheet(timezone: $timezone, isPresented: $showTimezoneSheet)
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             if let card = card {
