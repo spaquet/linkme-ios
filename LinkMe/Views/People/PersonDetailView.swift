@@ -7,7 +7,6 @@ struct PersonDetailView: View {
     @State private var sharedPeople: [PersonModel] = []
     @State private var isShowingEditSheet = false
     @State private var isShowingDeleteConfirmation = false
-    @State private var showActionPopover = false
 
     init(person: PersonModel, navigationManager: NavigationManager) {
         self._person = State(initialValue: person)
@@ -21,18 +20,18 @@ struct PersonDetailView: View {
 
             VStack(spacing: 0) {
                 // Header with back button and actions
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Button(action: {
                         if !navigationManager.navigationPath.isEmpty {
                             navigationManager.navigationPath.removeLast()
                         }
                     }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 30, height: 30)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .cornerRadius(7)
                     }
 
                     if navigationManager.navigationPath.count > 1 {
@@ -40,11 +39,11 @@ struct PersonDetailView: View {
                             navigationManager.navigationPath.removeAll()
                         }) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(LinkMeColors.s600)
-                                .frame(width: 32, height: 32)
+                                .frame(width: 30, height: 30)
                                 .background(LinkMeColors.surface)
-                                .cornerRadius(8)
+                                .cornerRadius(7)
                         }
                     }
 
@@ -52,24 +51,41 @@ struct PersonDetailView: View {
 
                     Button(action: {}) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 30, height: 30)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .cornerRadius(7)
                     }
 
-                    Button(action: { withAnimation(.easeOut(duration: 0.15)) { showActionPopover = true } }) {
+                    Menu {
+                        Button(action: triggerEnrich) {
+                            Label("Enrich", systemImage: "wand.and.stars")
+                                .font(.system(size: 14, weight: .semibold, design: .default))
+                        }
+
+                        Button(action: { isShowingEditSheet = true }) {
+                            Label("Edit", systemImage: "pencil")
+                                .font(.system(size: 14, weight: .semibold, design: .default))
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive, action: { isShowingDeleteConfirmation = true }) {
+                            Label("Delete Contact", systemImage: "trash")
+                                .font(.system(size: 14, weight: .semibold, design: .default))
+                        }
+                    } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 30, height: 30)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .cornerRadius(7)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
                 .navigationBarBackButtonHidden(true)
 
                 ScrollViewReader { scrollProxy in
@@ -80,22 +96,22 @@ struct PersonDetailView: View {
                                 .frame(height: 0)
 
                             // Identity section
-                            VStack(spacing: 10) {
-                            Avatar(name: person.name, size: 84, ring: true)
+                            VStack(spacing: 8) {
+                            Avatar(name: person.name, size: 80, ring: true)
 
-                            VStack(spacing: 2) {
+                            VStack(spacing: 1) {
                                 Text(person.name)
-                                    .font(.system(size: 25, weight: .semibold, design: .default))
+                                    .font(.system(size: 24, weight: .semibold, design: .default))
                                     .tracking(-0.025)
                                     .foregroundColor(LinkMeColors.ink)
 
                                 Text("\(person.role) · \(person.company)")
-                                    .font(.system(size: 15, design: .default))
+                                    .font(.system(size: 14, design: .default))
                                     .foregroundColor(LinkMeColors.s500)
                             }
 
                             if !person.tags.isEmpty {
-                                HStack(spacing: 6) {
+                                HStack(spacing: 5) {
                                     Spacer()
                                     ForEach(person.tags, id: \.self) { tag in
                                         Chip(tag, tone: .slate)
@@ -104,32 +120,32 @@ struct PersonDetailView: View {
                                 }
                             }
 
-                            HStack(spacing: 16) {
+                            HStack(spacing: 14) {
                                 HStack(spacing: 5) {
                                     Image(systemName: "mappin.and.ellipse")
-                                        .font(.system(size: 14, weight: .regular))
+                                        .font(.system(size: 13, weight: .regular))
                                         .foregroundColor(LinkMeColors.s400)
                                     Text(person.location)
-                                        .font(.system(size: 12.5, design: .default))
+                                        .font(.system(size: 12, design: .default))
                                 }
 
                                 HStack(spacing: 5) {
                                     Image(systemName: "person.2.fill")
-                                        .font(.system(size: 14, weight: .regular))
+                                        .font(.system(size: 13, weight: .regular))
                                         .foregroundColor(LinkMeColors.s400)
                                     Text(person.met)
-                                        .font(.system(size: 12.5, design: .default))
+                                        .font(.system(size: 12, design: .default))
                                 }
                             }
                             .foregroundColor(LinkMeColors.s500)
                         }
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
-                        .padding(.vertical, 18)
+                        .padding(.vertical, 16)
 
                         // Quick actions
-                        VStack(spacing: 9) {
-                            HStack(spacing: 9) {
+                        VStack(spacing: 8) {
+                            HStack(spacing: 8) {
                                 QuickActionButton(
                                     icon: "wand.and.stars",
                                     label: "Brief me",
@@ -157,7 +173,7 @@ struct PersonDetailView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 18)
+                        .padding(.vertical, 14)
 
                         // Live context
                         VStack(alignment: .leading, spacing: 9) {
@@ -388,74 +404,7 @@ struct PersonDetailView: View {
                     }
                 }
             }
-
-            FloatingPopover(isPresented: $showActionPopover) {
-                Button(action: {
-                    triggerEnrich()
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showActionPopover = false
-                    }
-                }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "wand.and.stars")
-                            .font(.system(size: 14, weight: .semibold))
-                            .frame(width: 18)
-
-                        Text("Enrich")
-                            .font(.system(size: 14, weight: .semibold, design: .default))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .foregroundColor(LinkMeColors.ink)
-                }
-
-                Divider()
-                    .padding(.leading, 40)
-
-                Button(action: {
-                    isShowingEditSheet = true
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showActionPopover = false
-                    }
-                }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 14, weight: .semibold))
-                            .frame(width: 18)
-
-                        Text("Edit")
-                            .font(.system(size: 14, weight: .semibold, design: .default))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .foregroundColor(LinkMeColors.ink)
-                }
-
-                Divider()
-                    .padding(.leading, 40)
-
-                Button(action: {
-                    isShowingDeleteConfirmation = true
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showActionPopover = false
-                    }
-                }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14, weight: .semibold))
-                            .frame(width: 18)
-
-                        Text("Delete Contact")
-                            .font(.system(size: 14, weight: .semibold, design: .default))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .foregroundColor(LinkMeColors.rose500)
-                }
-            }
+        }
         }
         .onAppear {
             threads = MockDataManager.getThreadsForPerson(person.id)

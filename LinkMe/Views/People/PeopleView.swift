@@ -8,7 +8,6 @@ struct PeopleView: View {
     @State private var searchText = ""
     @State private var selectedFilter = "All"
     @State private var selectedSort = PersonSortOption.capturedRecent
-    @State private var showSortPopover = false
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
 
@@ -102,61 +101,75 @@ struct PeopleView: View {
 
             VStack(spacing: 0) {
                 // TopBar
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("People")
                             .font(.system(size: 28, weight: .semibold, design: .default))
                             .tracking(-0.02)
                             .foregroundColor(LinkMeColors.ink)
 
                         Text("\(people.count) contacts · all on this device")
-                            .font(.system(size: 13.5, weight: .regular, design: .default))
+                            .font(.system(size: 13, weight: .regular, design: .default))
                             .foregroundColor(LinkMeColors.s500)
                     }
 
                     Spacer()
 
-                    Button(action: { withAnimation(.easeOut(duration: 0.15)) { showSortPopover = true } }) {
+                    Menu {
+                        ForEach(PersonSortOption.allCases, id: \.id) { option in
+                            Button(action: { selectedSort = option }) {
+                                HStack(spacing: 6) {
+                                    Text(option.rawValue)
+                                        .font(.system(size: 14, weight: .semibold, design: .default))
+
+                                    if selectedSort == option {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 12, weight: .semibold))
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
                         Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 40, height: 40)
+                            .frame(width: 36, height: 36)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(12)
+                            .cornerRadius(10)
                             .border(LinkMeColors.s200, width: 1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
 
                 // Search
-                HStack(spacing: 10) {
+                HStack(spacing: 9) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(LinkMeColors.s500)
 
                     TextField("Search people", text: $searchText)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 15, design: .default))
+                        .font(.system(size: 14.5, design: .default))
                         .foregroundColor(LinkMeColors.ink)
                 }
-                .padding(.horizontal, 13)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 9)
                 .background(LinkMeColors.surface)
                 .cornerRadius(LinkMeLayout.cornerRadius)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
 
                 // Filter chips
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     ForEach(filters, id: \.self) { filter in
                         Button(action: { selectedFilter = filter }) {
                             Text(filter)
-                                .font(.system(size: 13.5, weight: .semibold, design: .default))
+                                .font(.system(size: 13, weight: .semibold, design: .default))
                                 .foregroundColor(selectedFilter == filter ? .white : LinkMeColors.s600)
-                                .frame(height: 32)
-                                .padding(.horizontal, 14)
+                                .frame(height: 30)
+                                .padding(.horizontal, 12)
                                 .background(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.surface)
                                 .border(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, width: 1)
                                 .cornerRadius(999)
@@ -165,7 +178,7 @@ struct PeopleView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 9)
 
                 // List
                 if people.isEmpty {
@@ -188,86 +201,53 @@ struct PeopleView: View {
                     .padding(.bottom, LinkMeLayout.tabBarHeight)
                 } else {
                     ScrollView {
-                        VStack(spacing: 1) {
-                            ForEach(filteredPeople, id: \.id) { person in
+                        VStack(spacing: 0) {
+                            ForEach(filteredPeople.indices, id: \.self) { index in
                                 Button(action: {
-                                    navigationManager.openPersonDetail(person)
+                                    navigationManager.openPersonDetail(filteredPeople[index])
                                 }) {
-                                    HStack(spacing: 12) {
-                                        Avatar(name: person.name, size: 44)
+                                    HStack(spacing: 11) {
+                                        Avatar(name: filteredPeople[index].name, size: 42)
 
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(person.name)
-                                                .font(.system(size: 15, weight: .semibold, design: .default))
+                                            Text(filteredPeople[index].name)
+                                                .font(.system(size: 14.5, weight: .semibold, design: .default))
                                                 .foregroundColor(LinkMeColors.ink)
 
-                                            Text(contactDetail(for: person))
-                                                .font(.system(size: 13, design: .default))
+                                            Text(contactDetail(for: filteredPeople[index]))
+                                                .font(.system(size: 12.5, design: .default))
                                                 .foregroundColor(LinkMeColors.s500)
                                         }
 
                                         Spacer()
 
                                         VStack(alignment: .trailing, spacing: 2) {
-                                            Text(formatLastContact(person.lastContact))
-                                                .font(.system(size: 11.5, weight: .regular, design: .default))
+                                            Text(formatLastContact(filteredPeople[index].lastContact))
+                                                .font(.system(size: 11, weight: .regular, design: .default))
                                                 .foregroundColor(LinkMeColors.s400)
 
                                             Image(systemName: "chevron.right")
-                                                .font(.system(size: 16, weight: .semibold))
+                                                .font(.system(size: 14, weight: .semibold))
                                                 .foregroundColor(LinkMeColors.s300)
                                         }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
                                     .background(LinkMeColors.canvas)
+                                }
+
+                                if index < filteredPeople.count - 1 {
+                                    Divider()
+                                        .padding(.horizontal, 14)
                                 }
                             }
                         }
                         .background(LinkMeColors.surface)
                         .cornerRadius(LinkMeLayout.cardRadius)
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 10)
                         .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
-                    }
-                }
-
-                FloatingPopover(isPresented: $showSortPopover) {
-                    ForEach(PersonSortOption.allCases.indices, id: \.self) { index in
-                        let option = PersonSortOption.allCases[index]
-                        Button(action: {
-                            selectedSort = option
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                showSortPopover = false
-                            }
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "arrow.up.arrow.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .frame(width: 18)
-
-                                Text(option.rawValue)
-                                    .font(.system(size: 14, weight: .semibold, design: .default))
-
-                                Spacer()
-
-                                if selectedSort == option {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(LinkMeColors.t600)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .foregroundColor(LinkMeColors.ink)
-                        }
-
-                        if index < PersonSortOption.allCases.count - 1 {
-                            Divider()
-                                .padding(.leading, 40)
-                        }
                     }
                 }
             }
