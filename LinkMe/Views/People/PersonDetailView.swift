@@ -1,5 +1,9 @@
 import SwiftUI
 
+// PersonDetailView is the full profile view for a person in the graph.
+// Entry points: BriefingView ("View full profile"), PeopleView (person cell tap), NavigationStack via navigationPath.
+// Displays full person record, timeline of captures/interactions, actions (edit, brief, follow-up, delete).
+// Navigation state is managed via NavigationManager.navigationPath — back button pops, X closes all nested navigation.
 struct PersonDetailView: View {
     @State private var person: PersonModel
     let navigationManager: NavigationManager
