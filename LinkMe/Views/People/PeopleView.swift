@@ -11,6 +11,7 @@ struct PeopleView: View {
     @State private var selectedSort = PersonSortOption.capturedRecent
     @State private var isLoadingPeople = false
     @State private var hasMorePeople = true
+    @FocusState private var isSearchFocused: Bool
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
     private let pageSize = 40
@@ -111,7 +112,7 @@ struct PeopleView: View {
                             .foregroundColor(LinkMeColors.s500)
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
                                     .strokeBorder(LinkMeColors.s200, lineWidth: 1)
@@ -132,6 +133,7 @@ struct PeopleView: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 14.5, design: .default))
                         .foregroundColor(LinkMeColors.ink)
+                        .focused($isSearchFocused)
 
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
@@ -147,6 +149,10 @@ struct PeopleView: View {
                 .padding(.vertical, 9)
                 .background(LinkMeColors.surface)
                 .cornerRadius(LinkMeLayout.cornerRadius)
+                .overlay(
+                    RoundedRectangle(cornerRadius: LinkMeLayout.cornerRadius)
+                        .strokeBorder(isSearchFocused ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                )
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
 
@@ -160,7 +166,7 @@ struct PeopleView: View {
                                 .frame(height: 32)
                                 .padding(.horizontal, 12)
                                 .background(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.surface)
-                                .cornerRadius(8)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
                                         .strokeBorder(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, lineWidth: 1)
