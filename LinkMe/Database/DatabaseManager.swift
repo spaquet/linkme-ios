@@ -51,7 +51,11 @@ class DatabaseManager {
             captured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_contact DATETIME,
             is_favorite BOOLEAN DEFAULT 0,
-            deleted_at DATETIME
+            deleted_at DATETIME,
+            context TEXT,
+            personal TEXT,
+            followup TEXT,
+            tags TEXT
         );
         """
 
@@ -118,6 +122,8 @@ class DatabaseManager {
         for createTableSQL in [users, people, notes, contacts, threads, shares, relationships] {
             executeSQL(createTableSQL)
         }
+
+        migratePeopleSchema()
     }
 
     func executeSQL(_ sql: String) {
@@ -132,19 +138,23 @@ class DatabaseManager {
 
     func insertPerson(_ person: PersonModel) {
         let sql = """
-        INSERT INTO people (id, name, company, role, tone, captured_at, is_favorite)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO people (id, name, company, role, tone, captured_at, is_favorite, context, personal, followup, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, person.id, -1, nil)
-            sqlite3_bind_text(statement, 2, person.name, -1, nil)
-            sqlite3_bind_text(statement, 3, person.company, -1, nil)
-            sqlite3_bind_text(statement, 4, person.role, -1, nil)
-            sqlite3_bind_text(statement, 5, person.tone, -1, nil)
+            bindText(statement, 1, person.id)
+            bindText(statement, 2, person.name)
+            bindText(statement, 3, person.company)
+            bindText(statement, 4, person.role)
+            bindText(statement, 5, person.tone)
             sqlite3_bind_int64(statement, 6, Int64(person.capturedAt.timeIntervalSince1970))
             sqlite3_bind_int(statement, 7, person.isFavorite ? 1 : 0)
+            bindText(statement, 8, person.context)
+            bindText(statement, 9, person.personal)
+            bindText(statement, 10, person.followup)
+            bindText(statement, 11, encodeTags(person.tags))
 
             if sqlite3_step(statement) == SQLITE_DONE {
                 print("✓ Person inserted: \(person.name)")
@@ -154,18 +164,33 @@ class DatabaseManager {
     }
 
     func fetchPeople() -> [PersonModel] {
-        let sql = "SELECT id, name, company, role, tone, captured_at FROM people WHERE deleted_at IS NULL"
+        let sql = """
+        SELECT id, name, company, role, tone, captured_at, last_contact, is_favorite, context, personal, followup, tags
+        FROM people
+        WHERE deleted_at IS NULL
+        ORDER BY captured_at DESC
+        """
         var people: [PersonModel] = []
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
-                let id = String(cString: sqlite3_column_text(statement, 0))
-                let name = String(cString: sqlite3_column_text(statement, 1))
-                let company = String(cString: sqlite3_column_text(statement, 2))
-                let role = String(cString: sqlite3_column_text(statement, 3))
+                let id = columnText(statement, 0) ?? UUID().uuidString
+                let name = columnText(statement, 1) ?? "Unknown person"
+                let company = columnText(statement, 2) ?? ""
+                let role = columnText(statement, 3) ?? ""
 
                 var person = PersonModel(id: id, name: name, company: company, role: role)
+                person.tone = columnText(statement, 4) ?? "teal"
+                person.capturedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 5)))
+                if sqlite3_column_type(statement, 6) != SQLITE_NULL {
+                    person.lastContact = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 6)))
+                }
+                person.isFavorite = sqlite3_column_int(statement, 7) == 1
+                person.context = columnText(statement, 8) ?? ""
+                person.personal = columnText(statement, 9) ?? ""
+                person.followup = columnText(statement, 10) ?? ""
+                person.tags = decodeTags(columnText(statement, 11))
                 people.append(person)
             }
         }
@@ -175,18 +200,19 @@ class DatabaseManager {
 
     func insertNote(_ note: NoteModel) {
         let sql = """
-        INSERT INTO notes (id, person_id, text, transcription, created_at, is_followup)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO notes (id, person_id, text, transcription, extracted_json, created_at, is_followup)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, note.id, -1, nil)
-            sqlite3_bind_text(statement, 2, note.personId, -1, nil)
-            sqlite3_bind_text(statement, 3, note.text, -1, nil)
-            sqlite3_bind_text(statement, 4, note.transcription, -1, nil)
-            sqlite3_bind_int64(statement, 5, Int64(note.createdAt.timeIntervalSince1970))
-            sqlite3_bind_int(statement, 6, note.isFollowUp ? 1 : 0)
+            bindText(statement, 1, note.id)
+            bindText(statement, 2, note.personId)
+            bindText(statement, 3, note.text)
+            bindText(statement, 4, note.transcription)
+            bindText(statement, 5, encodeExtractedJson(note.extractedJson))
+            sqlite3_bind_int64(statement, 6, Int64(note.createdAt.timeIntervalSince1970))
+            sqlite3_bind_int(statement, 7, note.isFollowUp ? 1 : 0)
 
             if sqlite3_step(statement) == SQLITE_DONE {
                 print("✓ Note inserted")
@@ -215,6 +241,79 @@ class DatabaseManager {
         }
         sqlite3_finalize(statement)
         return notes
+    }
+
+    private func migratePeopleSchema() {
+        addColumnIfMissing(table: "people", column: "context", definition: "TEXT")
+        addColumnIfMissing(table: "people", column: "personal", definition: "TEXT")
+        addColumnIfMissing(table: "people", column: "followup", definition: "TEXT")
+        addColumnIfMissing(table: "people", column: "tags", definition: "TEXT")
+    }
+
+    private func addColumnIfMissing(table: String, column: String, definition: String) {
+        guard !columnExists(table: table, column: column) else { return }
+        executeSQL("ALTER TABLE \(table) ADD COLUMN \(column) \(definition);")
+    }
+
+    private func columnExists(table: String, column: String) -> Bool {
+        let sql = "PRAGMA table_info(\(table));"
+        var statement: OpaquePointer?
+        var exists = false
+
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                if columnText(statement, 1) == column {
+                    exists = true
+                    break
+                }
+            }
+        }
+
+        sqlite3_finalize(statement)
+        return exists
+    }
+
+    private func bindText(_ statement: OpaquePointer?, _ index: Int32, _ value: String?) {
+        guard let value else {
+            sqlite3_bind_null(statement, index)
+            return
+        }
+
+        sqlite3_bind_text(statement, index, value, -1, nil)
+    }
+
+    private func columnText(_ statement: OpaquePointer?, _ index: Int32) -> String? {
+        guard let text = sqlite3_column_text(statement, index) else { return nil }
+        return String(cString: text)
+    }
+
+    private func encodeTags(_ tags: [String]) -> String {
+        guard let data = try? JSONEncoder().encode(tags),
+              let json = String(data: data, encoding: .utf8) else {
+            return "[]"
+        }
+
+        return json
+    }
+
+    private func decodeTags(_ json: String?) -> [String] {
+        guard let json,
+              let data = json.data(using: .utf8),
+              let tags = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+
+        return tags
+    }
+
+    private func encodeExtractedJson(_ extractedJson: [String: String]) -> String? {
+        guard !extractedJson.isEmpty,
+              let data = try? JSONEncoder().encode(extractedJson),
+              let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        return json
     }
 
     deinit {

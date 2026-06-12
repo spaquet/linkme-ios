@@ -70,9 +70,7 @@ struct CaptureView: View {
                             ResultPhaseView(
                                 data: data,
                                 transcript: speechManager.recognizedText,
-                                onSave: {
-                                    dismiss()
-                                }
+                                onSave: saveCapture
                             )
                         }
 
@@ -143,6 +141,33 @@ struct CaptureView: View {
             await aiManager.extractFromTranscription(speechManager.recognizedText)
             phase = .result
         }
+    }
+
+    private func saveCapture(_ data: ExtractedPersonData) {
+        let personId = UUID().uuidString
+        var person = PersonModel(
+            id: personId,
+            name: data.name?.nonEmptyTrimmed ?? "Unknown person",
+            company: data.company?.nonEmptyTrimmed ?? "",
+            role: data.role?.nonEmptyTrimmed ?? ""
+        )
+        person.context = data.liveContext?.nonEmptyTrimmed ?? ""
+        person.followup = data.followUp?.nonEmptyTrimmed ?? ""
+        person.personal = data.personalDetail?.nonEmptyTrimmed ?? ""
+        person.tags = data.tags.cleanedTags
+        person.lastContact = Date()
+
+        var note = NoteModel(
+            personId: personId,
+            text: speechManager.recognizedText,
+            transcription: speechManager.recognizedText
+        )
+        note.extractedJson = data.extractedJson
+        note.isFollowUp = data.followUp?.nonEmptyTrimmed != nil
+
+        DatabaseManager.shared.insertPerson(person)
+        DatabaseManager.shared.insertNote(note)
+        dismiss()
     }
 }
 
@@ -315,9 +340,48 @@ struct ProcessingPhaseView: View {
 struct ResultPhaseView: View {
     let data: ExtractedPersonData
     let transcript: String
-    let onSave: () -> Void
+    let onSave: (ExtractedPersonData) -> Void
+
+    @State private var isEditing = false
+    @State private var name: String
+    @State private var company: String
+    @State private var role: String
+    @State private var liveContext: String
+    @State private var followUp: String
+    @State private var personalDetail: String
+    @State private var tagsText: String
+
+    init(data: ExtractedPersonData, transcript: String, onSave: @escaping (ExtractedPersonData) -> Void) {
+        self.data = data
+        self.transcript = transcript
+        self.onSave = onSave
+        _name = State(initialValue: data.name ?? "")
+        _company = State(initialValue: data.company ?? "")
+        _role = State(initialValue: data.role ?? "")
+        _liveContext = State(initialValue: data.liveContext ?? "")
+        _followUp = State(initialValue: data.followUp ?? "")
+        _personalDetail = State(initialValue: data.personalDetail ?? "")
+        _tagsText = State(initialValue: data.tags.joined(separator: ", "))
+    }
+
+    private var draftData: ExtractedPersonData {
+        ExtractedPersonData(
+            name: name.nonEmptyTrimmed,
+            company: company.nonEmptyTrimmed,
+            role: role.nonEmptyTrimmed,
+            liveContext: liveContext.nonEmptyTrimmed,
+            followUp: followUp.nonEmptyTrimmed,
+            personalDetail: personalDetail.nonEmptyTrimmed,
+            tags: tagsText
+                .split(separator: ",")
+                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
+    }
 
     var body: some View {
+        let draft = draftData
+
         ScrollView {
             VStack(spacing: 18) {
                 HStack(spacing: 8) {
@@ -339,26 +403,36 @@ struct ResultPhaseView: View {
                         // Identity
                         HStack(spacing: 14) {
                             Avatar(
-                                name: data.name ?? "Unknown",
+                                name: draft.name ?? "Unknown",
                                 size: 56,
                                 tone: "teal"
                             )
 
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(data.name ?? "Name not found")
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .tracking(-0.02)
-                                    .foregroundColor(LinkMeColors.ink)
+                                if isEditing {
+                                    DraftTextField("Name", text: $name)
+                                    HStack(spacing: 8) {
+                                        DraftTextField("Role", text: $role)
+                                        DraftTextField("Company", text: $company)
+                                    }
+                                } else {
+                                    Text(draft.name ?? "Name not found")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .tracking(-0.02)
+                                        .foregroundColor(LinkMeColors.ink)
 
-                                Text("\(data.role ?? "Unknown") · \(data.company ?? "Unknown")")
-                                    .font(.system(size: 13.5, weight: .regular, design: .default))
-                                    .foregroundColor(LinkMeColors.s500)
+                                    Text("\(draft.role ?? "Unknown") · \(draft.company ?? "Unknown")")
+                                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                                        .foregroundColor(LinkMeColors.s500)
+                                }
 
                                 HStack(spacing: 6) {
-                                    if data.tags.isEmpty {
+                                    if isEditing {
+                                        DraftTextField("Tags", text: $tagsText)
+                                    } else if draft.tags.isEmpty {
                                         Chip("Captured", tone: .teal)
                                     } else {
-                                        ForEach(data.tags.prefix(4), id: \.self) { tag in
+                                        ForEach(draft.tags.prefix(4), id: \.self) { tag in
                                             Chip(tag, tone: .teal)
                                         }
                                     }
@@ -372,29 +446,56 @@ struct ResultPhaseView: View {
                         Divider()
 
                         VStack(alignment: .leading, spacing: 13) {
-                            ExtractFieldView(
-                                icon: "building.2",
-                                label: "Live context",
-                                text: data.liveContext ?? "No context extracted"
-                            )
+                            if isEditing {
+                                EditableExtractFieldView(
+                                    icon: "building.2",
+                                    label: "Live context",
+                                    placeholder: "No context extracted",
+                                    text: $liveContext
+                                )
+                            } else {
+                                ExtractFieldView(
+                                    icon: "building.2",
+                                    label: "Live context",
+                                    text: draft.liveContext ?? "No context extracted"
+                                )
+                            }
 
                             Divider()
                                 .padding(.vertical, 0)
 
-                            ExtractFieldView(
-                                icon: "arrowshape.forward.fill",
-                                label: "Follow-up",
-                                text: data.followUp ?? "No follow-up found"
-                            )
+                            if isEditing {
+                                EditableExtractFieldView(
+                                    icon: "arrowshape.forward.fill",
+                                    label: "Follow-up",
+                                    placeholder: "No follow-up found",
+                                    text: $followUp
+                                )
+                            } else {
+                                ExtractFieldView(
+                                    icon: "arrowshape.forward.fill",
+                                    label: "Follow-up",
+                                    text: draft.followUp ?? "No follow-up found"
+                                )
+                            }
 
                             Divider()
                                 .padding(.vertical, 0)
 
-                            ExtractFieldView(
-                                icon: "heart.fill",
-                                label: "Personal detail",
-                                text: data.personalDetail ?? "No personal details"
-                            )
+                            if isEditing {
+                                EditableExtractFieldView(
+                                    icon: "heart.fill",
+                                    label: "Personal detail",
+                                    placeholder: "No personal details",
+                                    text: $personalDetail
+                                )
+                            } else {
+                                ExtractFieldView(
+                                    icon: "heart.fill",
+                                    label: "Personal detail",
+                                    text: draft.personalDetail ?? "No personal details"
+                                )
+                            }
                         }
                         .padding(18)
                     }
@@ -425,8 +526,12 @@ struct ResultPhaseView: View {
                 .padding(.horizontal, 18)
 
                 HStack(spacing: 10) {
-                    Button(action: {}) {
-                        Image(systemName: "pencil")
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            isEditing.toggle()
+                        }
+                    }) {
+                        Image(systemName: isEditing ? "checkmark" : "pencil")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.t700)
                             .frame(width: 52, height: 44)
@@ -435,7 +540,9 @@ struct ResultPhaseView: View {
                             .cornerRadius(10)
                     }
 
-                    PrimaryButton("Save to graph", tone: .teal, action: onSave)
+                    PrimaryButton("Save to graph", tone: .teal) {
+                        onSave(draftData)
+                    }
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 4)
@@ -443,6 +550,65 @@ struct ResultPhaseView: View {
             .padding(.vertical, 24)
             .padding(.horizontal, 0)
         }
+    }
+}
+
+struct DraftTextField: View {
+    let placeholder: String
+    @Binding var text: String
+
+    init(_ placeholder: String, text: Binding<String>) {
+        self.placeholder = placeholder
+        self._text = text
+    }
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .textFieldStyle(.plain)
+            .font(.system(size: 14.5, weight: .regular, design: .default))
+            .foregroundColor(LinkMeColors.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(LinkMeColors.s50)
+            .border(LinkMeColors.s200, width: 1)
+            .cornerRadius(8)
+    }
+}
+
+struct EditableExtractFieldView: View {
+    let icon: String
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(LinkMeColors.t700)
+                .frame(width: 30, height: 30)
+                .background(LinkMeColors.t50)
+                .border(LinkMeColors.t200, width: 1)
+                .cornerRadius(9)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(label)
+                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.s400)
+
+                TextField(placeholder, text: $text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14.5, weight: .regular, design: .default))
+                    .foregroundColor(LinkMeColors.ink)
+                    .lineLimit(2...4)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(LinkMeColors.s50)
+                    .border(LinkMeColors.s200, width: 1)
+                    .cornerRadius(8)
+            }
+        }
+        .padding(.vertical, 13)
     }
 }
 
@@ -462,17 +628,9 @@ struct ExtractFieldView: View {
                 .cornerRadius(9)
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(label)
-                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                        .foregroundColor(LinkMeColors.s400)
-
-                    Spacer()
-
-                    Image(systemName: "pencil")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(LinkMeColors.s300)
-                }
+                Text(label)
+                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.s400)
 
                 Text(text)
                     .font(.system(size: 14.5, weight: .regular, design: .default))
@@ -582,6 +740,47 @@ struct PermissionDeniedView: View {
     private func openSettings() {
         guard let settingsURL = URL(string: "app-settings://") else { return }
         UIApplication.shared.open(settingsURL)
+    }
+}
+
+private extension String {
+    var nonEmptyTrimmed: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+private extension Array where Element == String {
+    var cleanedTags: [String] {
+        map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .uniqued()
+    }
+}
+
+private extension ExtractedPersonData {
+    var extractedJson: [String: String] {
+        var values: [String: String] = [:]
+        values["name"] = name?.nonEmptyTrimmed
+        values["company"] = company?.nonEmptyTrimmed
+        values["role"] = role?.nonEmptyTrimmed
+        values["liveContext"] = liveContext?.nonEmptyTrimmed
+        values["followUp"] = followUp?.nonEmptyTrimmed
+        values["personalDetail"] = personalDetail?.nonEmptyTrimmed
+
+        let cleanedTags = tags.cleanedTags
+        if !cleanedTags.isEmpty {
+            values["tags"] = cleanedTags.joined(separator: ", ")
+        }
+
+        return values
+    }
+}
+
+private extension Array where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
     }
 }
 
