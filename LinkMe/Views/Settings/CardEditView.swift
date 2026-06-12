@@ -400,6 +400,7 @@ struct CardEditView: View {
                 pronouns = card.pronouns ?? ""
             }
         }
+        .navigationBarBackButtonHidden(true)
     }
 
     private func saveCard() {

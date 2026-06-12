@@ -9,12 +9,11 @@ struct CardListView: View {
     @State private var cardToDelete: CardModel?
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                LinkMeColors.canvas
-                    .ignoresSafeArea()
+        ZStack {
+            LinkMeColors.canvas
+                .ignoresSafeArea()
 
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
                     HStack(spacing: 10) {
                         Button(action: { dismiss() }) {
                             Image(systemName: "chevron.left")
@@ -136,7 +135,7 @@ struct CardListView: View {
                     loadCards()
                 }
             }
-        }
+            .navigationBarBackButtonHidden(true)
     }
 
     private func loadCards() {
