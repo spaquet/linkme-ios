@@ -15,9 +15,10 @@ struct CardEditView: View {
     @State private var tagline = ""
     @State private var location = ""
     @State private var timezone = ""
-    @State private var pronouns = ""
     @State private var isDefault = false
 
+    @State private var showLocationSheet = false
+    @State private var showTimezoneSheet = false
     @State private var showChatAppsModal = false
     @State private var showSocialLinksModal = false
     @State private var showPaymentLinksModal = false
@@ -380,111 +381,82 @@ struct CardEditView: View {
                             }
                             .padding(.horizontal, 16)
 
-                            HStack(spacing: 11) {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text("PHONE")
-                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.s400)
-                                        .tracking(0.04)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("PHONE")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
 
-                                    TextField("Phone", text: $phone)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .keyboardType(.phonePad)
-                                        .textContentType(.telephoneNumber)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .phone)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .location }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .phone ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                TextField("Phone", text: $phone)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 15, design: .default))
+                                    .foregroundColor(LinkMeColors.ink)
+                                    .accentColor(LinkMeColors.t500)
+                                    .keyboardType(.phonePad)
+                                    .textContentType(.telephoneNumber)
+                                    .autocorrectionDisabled()
+                                    .focused($focusedField, equals: .phone)
+                                    .submitLabel(.done)
+                                    .onSubmit { focusedField = nil }
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 12)
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == .phone ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
+                            }
+                            .padding(.horizontal, 16)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("LOCATION")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
+
+                                Card {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(location.isEmpty ? "Select location" : location)
+                                                .font(.system(size: 15, design: .default))
+                                                .foregroundColor(location.isEmpty ? LinkMeColors.s400 : LinkMeColors.ink)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.s400)
+                                    }
+                                    .contentShape(Rectangle())
                                 }
-
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text("LOCATION")
-                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.s400)
-                                        .tracking(0.04)
-
-                                    TextField("Location", text: $location)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .textContentType(.addressCity)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .location)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .timezone }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .location ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                .onTapGesture {
+                                    showLocationSheet = true
                                 }
                             }
                             .padding(.horizontal, 16)
 
-                            HStack(spacing: 11) {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text("TIMEZONE")
-                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.s400)
-                                        .tracking(0.04)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("TIMEZONE")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
 
-                                    TextField("UTC-8", text: $timezone)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .timezone)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .pronouns }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .timezone ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                Card {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(timezone.isEmpty ? "Select timezone" : timezone)
+                                                .font(.system(size: 15, design: .default))
+                                                .foregroundColor(timezone.isEmpty ? LinkMeColors.s400 : LinkMeColors.ink)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.s400)
+                                    }
+                                    .contentShape(Rectangle())
                                 }
-
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text("PRONOUNS")
-                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.s400)
-                                        .tracking(0.04)
-
-                                    TextField("Pronouns", text: $pronouns)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .pronouns)
-                                        .submitLabel(.done)
-                                        .onSubmit { focusedField = nil }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .pronouns ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                .onTapGesture {
+                                    showTimezoneSheet = true
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -584,6 +556,12 @@ struct CardEditView: View {
                 .background(LinkMeColors.canvas)
             }
         }
+        .sheet(isPresented: $showLocationSheet) {
+            LocationPickerSheet(location: $location, isPresented: $showLocationSheet)
+        }
+        .sheet(isPresented: $showTimezoneSheet) {
+            TimezonePickerSheet(timezone: $timezone, isPresented: $showTimezoneSheet)
+        }
         .onAppear {
             if let card = card {
                 name = card.name
@@ -597,7 +575,6 @@ struct CardEditView: View {
                 tagline = card.tagline ?? ""
                 location = card.location ?? ""
                 timezone = card.timezone ?? ""
-                pronouns = card.pronouns ?? ""
                 isDefault = card.isDefault
             }
         }
@@ -620,7 +597,7 @@ struct CardEditView: View {
             tagline: tagline.isEmpty ? nil : tagline,
             location: location.isEmpty ? nil : location,
             timezone: timezone.isEmpty ? nil : timezone,
-            pronouns: pronouns.isEmpty ? nil : pronouns,
+            pronouns: nil,
             isDefault: isDefault,
             sharedPublicly: card?.sharedPublicly ?? false
         )
@@ -648,8 +625,292 @@ enum CardField: Hashable {
     case tagline
     case phone
     case location
-    case timezone
-    case pronouns
+}
+
+struct LocationPickerSheet: View {
+    @Binding var location: String
+    @Binding var isPresented: Bool
+    @State private var searchText = ""
+
+    private let locations = [
+        "New York, US", "Los Angeles, US", "Chicago, US", "Houston, US", "Phoenix, US",
+        "Philadelphia, US", "San Antonio, US", "San Diego, US", "Dallas, US", "San Jose, US",
+        "Austin, US", "Jacksonville, US", "Fort Worth, US", "Columbus, US", "Charlotte, US",
+        "San Francisco, US", "Boston, US", "Seattle, US", "Denver, US", "Washington, DC, US",
+        "London, UK", "Manchester, UK", "Birmingham, UK", "Leeds, UK", "Glasgow, UK",
+        "Toronto, CA", "Vancouver, CA", "Montreal, CA", "Calgary, CA", "Ottawa, CA",
+        "Sydney, AU", "Melbourne, AU", "Brisbane, AU", "Perth, AU", "Adelaide, AU",
+        "Tokyo, JP", "Osaka, JP", "Yokohama, JP", "Nagoya, JP", "Sapporo, JP",
+        "Paris, FR", "Marseille, FR", "Lyon, FR", "Toulouse, FR", "Nice, FR",
+        "Berlin, DE", "Munich, DE", "Cologne, DE", "Hamburg, DE", "Frankfurt, DE",
+        "Singapore, SG", "Bangkok, TH", "Hong Kong, HK", "Mumbai, IN", "Delhi, IN",
+        "São Paulo, BR", "Rio de Janeiro, BR", "Salvador, BR", "Brasília, BR",
+        "Mexico City, MX", "Guadalajara, MX", "Cancún, MX"
+    ].sorted()
+
+    private var filteredLocations: [String] {
+        if searchText.isEmpty {
+            return locations
+        }
+        return locations.filter { $0.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Location")
+                        .font(.system(size: 18, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                    Spacer()
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(LinkMeColors.s400)
+
+                    TextField("Search", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 15, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s400)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(LinkMeColors.s100)
+                .cornerRadius(10)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(filteredLocations, id: \.self) { loc in
+                        Button(action: {
+                            location = loc
+                            isPresented = false
+                        }) {
+                            HStack {
+                                Text(loc)
+                                    .font(.system(size: 15, design: .default))
+                                    .foregroundColor(LinkMeColors.ink)
+                                Spacer()
+                                if location == loc {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(LinkMeColors.t500)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .contentShape(Rectangle())
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            VStack(spacing: 12) {
+                Button(action: { isPresented = false }) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .foregroundColor(.white)
+                        .background(LinkMeColors.ink)
+                        .cornerRadius(12)
+                }
+            }
+            .padding(16)
+            .background(LinkMeColors.canvas)
+        }
+        .background(LinkMeColors.canvas)
+    }
+}
+
+struct TimezonePickerSheet: View {
+    @Binding var timezone: String
+    @Binding var isPresented: Bool
+    @State private var searchText = ""
+
+    private let timezones = TimeZone.knownTimeZoneIdentifiers.sorted()
+    private let deviceTimezone = TimeZone.current.identifier
+
+    private var filteredTimezones: [String] {
+        if searchText.isEmpty {
+            return timezones
+        }
+        return timezones.filter { $0.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    private func timeInfoForTimezone(_ tzIdentifier: String) -> (time: String, offset: String) {
+        guard let tz = TimeZone(identifier: tzIdentifier) else {
+            return ("--:--", "UTC")
+        }
+
+        let now = Date()
+        var calendar = Calendar.current
+        calendar.timeZone = tz
+
+        let components = calendar.dateComponents([.hour, .minute], from: now)
+        let hour = String(format: "%02d", components.hour ?? 0)
+        let minute = String(format: "%02d", components.minute ?? 0)
+        let time = "\(hour):\(minute)"
+
+        let seconds = tz.secondsFromGMT()
+        let hours = seconds / 3600
+        let mins = (abs(seconds) % 3600) / 60
+        let sign = hours >= 0 ? "+" : ""
+
+        let offset: String
+        if mins == 0 {
+            offset = "UTC\(sign)\(hours)"
+        } else {
+            offset = "UTC\(sign)\(hours):\(String(format: "%02d", mins))"
+        }
+
+        return (time, offset)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Timezone")
+                        .font(.system(size: 18, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                    Spacer()
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(LinkMeColors.s400)
+
+                    TextField("Search", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 15, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s400)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(LinkMeColors.s100)
+                .cornerRadius(10)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(filteredTimezones, id: \.self) { tz in
+                            let (time, offset) = timeInfoForTimezone(tz)
+                            let isSelected = timezone == tz
+                            let isDeviceTimezone = tz == deviceTimezone
+
+                            Button(action: {
+                                timezone = tz
+                                isPresented = false
+                            }) {
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(tz)
+                                            .font(.system(size: 15, weight: .semibold, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
+
+                                        HStack(spacing: 8) {
+                                            Text(time)
+                                                .font(.system(size: 13, design: .monospaced))
+                                                .foregroundColor(LinkMeColors.s600)
+
+                                            Text("•")
+                                                .foregroundColor(LinkMeColors.s400)
+
+                                            Text(offset)
+                                                .font(.system(size: 13, design: .default))
+                                                .foregroundColor(LinkMeColors.s500)
+                                        }
+                                    }
+
+                                    Spacer()
+
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        if isSelected {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 18, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.t500)
+                                        } else if isDeviceTimezone {
+                                            Text("Device")
+                                                .font(.system(size: 11, weight: .semibold, design: .default))
+                                                .foregroundColor(LinkMeColors.t500)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .id(tz)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .onAppear {
+                    if searchText.isEmpty {
+                        proxy.scrollTo(deviceTimezone, anchor: .center)
+                    }
+                }
+                .onChange(of: searchText) { _, newValue in
+                    if newValue.isEmpty && filteredTimezones.contains(deviceTimezone) {
+                        proxy.scrollTo(deviceTimezone, anchor: .center)
+                    }
+                }
+            }
+
+            VStack(spacing: 12) {
+                Button(action: { isPresented = false }) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .foregroundColor(.white)
+                        .background(LinkMeColors.ink)
+                        .cornerRadius(12)
+                }
+            }
+            .padding(16)
+            .background(LinkMeColors.canvas)
+        }
+        .background(LinkMeColors.canvas)
+    }
 }
 
 #Preview {
