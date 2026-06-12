@@ -20,7 +20,7 @@ LinkMe is a relationship operating system for high-stakes operators (founders, i
 
 ## Design System
 
-**Typography**: Geist (300-700 weight), Geist Mono
+**Typography**: Geist (300-700 weight), Geist Mono. **Text Alignment**: Left-aligned by default; design files override.
 **Colors**:
 - **Ink** `#0f1720` — headlines, primary text
 - **Teal** `#14b8a6` — live/on-device/AI signal (t50-t700 range)
