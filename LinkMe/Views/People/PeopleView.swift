@@ -8,6 +8,7 @@ struct PeopleView: View {
     @State private var searchText = ""
     @State private var selectedFilter = "All"
     @State private var selectedSort = PersonSortOption.capturedRecent
+    @State private var showSortPopover = false
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
 
@@ -115,21 +116,7 @@ struct PeopleView: View {
 
                     Spacer()
 
-                    Menu {
-                        ForEach(PersonSortOption.allCases, id: \.id) { option in
-                            Button(action: { selectedSort = option }) {
-                                HStack(spacing: 8) {
-                                    Text(option.rawValue)
-                                        .font(.system(size: 15, weight: .semibold, design: .default))
-
-                                    if selectedSort == option {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 13, weight: .semibold))
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
+                    Button(action: { withAnimation(.easeOut(duration: 0.15)) { showSortPopover = true } }) {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -243,6 +230,44 @@ struct PeopleView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
+                    }
+                }
+
+                FloatingPopover(isPresented: $showSortPopover) {
+                    ForEach(PersonSortOption.allCases.indices, id: \.self) { index in
+                        let option = PersonSortOption.allCases[index]
+                        Button(action: {
+                            selectedSort = option
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                showSortPopover = false
+                            }
+                        }) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "arrow.up.arrow.down")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .frame(width: 18)
+
+                                Text(option.rawValue)
+                                    .font(.system(size: 14, weight: .semibold, design: .default))
+
+                                Spacer()
+
+                                if selectedSort == option {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(LinkMeColors.t600)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .foregroundColor(LinkMeColors.ink)
+                        }
+
+                        if index < PersonSortOption.allCases.count - 1 {
+                            Divider()
+                                .padding(.leading, 40)
+                        }
                     }
                 }
             }

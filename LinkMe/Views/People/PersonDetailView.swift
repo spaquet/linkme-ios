@@ -7,6 +7,7 @@ struct PersonDetailView: View {
     @State private var sharedPeople: [PersonModel] = []
     @State private var isShowingEditSheet = false
     @State private var isShowingDeleteConfirmation = false
+    @State private var showActionPopover = false
 
     init(person: PersonModel, navigationManager: NavigationManager) {
         self._person = State(initialValue: person)
@@ -58,24 +59,7 @@ struct PersonDetailView: View {
                             .cornerRadius(8)
                     }
 
-                    Menu {
-                        Button(action: triggerEnrich) {
-                            Label("Enrich", systemImage: "wand.and.stars")
-                                .font(.system(size: 15, weight: .semibold, design: .default))
-                        }
-
-                        Button(action: { isShowingEditSheet = true }) {
-                            Label("Edit", systemImage: "pencil")
-                                .font(.system(size: 15, weight: .semibold, design: .default))
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive, action: { isShowingDeleteConfirmation = true }) {
-                            Label("Delete Contact", systemImage: "trash")
-                                .font(.system(size: 15, weight: .semibold, design: .default))
-                        }
-                    } label: {
+                    Button(action: { withAnimation(.easeOut(duration: 0.15)) { showActionPopover = true } }) {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -404,7 +388,74 @@ struct PersonDetailView: View {
                     }
                 }
             }
-        }
+
+            FloatingPopover(isPresented: $showActionPopover) {
+                Button(action: {
+                    triggerEnrich()
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showActionPopover = false
+                    }
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 18)
+
+                        Text("Enrich")
+                            .font(.system(size: 14, weight: .semibold, design: .default))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .foregroundColor(LinkMeColors.ink)
+                }
+
+                Divider()
+                    .padding(.leading, 40)
+
+                Button(action: {
+                    isShowingEditSheet = true
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showActionPopover = false
+                    }
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 18)
+
+                        Text("Edit")
+                            .font(.system(size: 14, weight: .semibold, design: .default))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .foregroundColor(LinkMeColors.ink)
+                }
+
+                Divider()
+                    .padding(.leading, 40)
+
+                Button(action: {
+                    isShowingDeleteConfirmation = true
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showActionPopover = false
+                    }
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 18)
+
+                        Text("Delete Contact")
+                            .font(.system(size: 14, weight: .semibold, design: .default))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .foregroundColor(LinkMeColors.rose500)
+                }
+            }
         }
         .onAppear {
             threads = MockDataManager.getThreadsForPerson(person.id)
