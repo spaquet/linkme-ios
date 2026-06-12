@@ -128,10 +128,7 @@ struct TodayView: View {
     private let eventStore = EKEventStore()
 
     private var isCalendarConnected: Bool {
-        if #available(iOS 17.0, *) {
-            return calendarAuthorizationStatus == .fullAccess
-        }
-        return calendarAuthorizationStatus == .authorized
+        calendarAuthorizationStatus == .fullAccess
     }
 
     private var upcomingEvents: [TodayCalendarEvent] {
@@ -423,11 +420,11 @@ struct TopBar: View {
                     selectedTab = 1
                 }) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(LinkMeColors.s600)
-                        .frame(width: 40, height: 40)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(LinkMeColors.s500)
+                        .frame(width: 32, height: 32)
                         .background(LinkMeColors.surface)
-                        .cornerRadius(8)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .strokeBorder(LinkMeColors.s200, lineWidth: 1)
@@ -439,11 +436,11 @@ struct TopBar: View {
                 }) {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bell")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 40, height: 40)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
                                     .strokeBorder(LinkMeColors.s200, lineWidth: 1)
