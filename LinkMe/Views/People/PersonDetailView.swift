@@ -7,6 +7,7 @@ struct PersonDetailView: View {
     @State private var sharedPeople: [PersonModel] = []
     @State private var isShowingEditSheet = false
     @State private var isShowingDeleteConfirmation = false
+    @State private var showActionMenu = false
 
     init(person: PersonModel, navigationManager: NavigationManager) {
         self._person = State(initialValue: person)
@@ -58,19 +59,7 @@ struct PersonDetailView: View {
                             .cornerRadius(8)
                     }
 
-                    Menu {
-                        Button(action: triggerEnrich) {
-                            Label("Enrich", systemImage: "wand.and.stars")
-                        }
-
-                        Button(action: { isShowingEditSheet = true }) {
-                            Label("Edit", systemImage: "pencil")
-                        }
-
-                        Button(role: .destructive, action: { isShowingDeleteConfirmation = true }) {
-                            Label("Delete Contact", systemImage: "trash")
-                        }
-                    } label: {
+                    Button(action: { showActionMenu = true }) {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -414,6 +403,13 @@ struct PersonDetailView: View {
                 DatabaseManager.shared.upsertPerson(updatedPerson)
                 updateNavigationPerson(updatedPerson)
             }
+        }
+        .sheet(isPresented: $showActionMenu) {
+            ActionMenuSheet(
+                onEnrich: triggerEnrich,
+                onEdit: { isShowingEditSheet = true },
+                onDelete: { isShowingDeleteConfirmation = true }
+            )
         }
         .confirmationDialog(
             "Delete \(person.name)?",

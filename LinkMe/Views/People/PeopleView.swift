@@ -8,6 +8,7 @@ struct PeopleView: View {
     @State private var searchText = ""
     @State private var selectedFilter = "All"
     @State private var selectedSort = PersonSortOption.capturedRecent
+    @State private var showSortSheet = false
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
 
@@ -115,18 +116,7 @@ struct PeopleView: View {
 
                     Spacer()
 
-                    Menu {
-                        ForEach(PersonSortOption.allCases, id: \.id) { option in
-                            Button(action: { selectedSort = option }) {
-                                HStack {
-                                    Text(option.rawValue)
-                                    if selectedSort == option {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
+                    Button(action: { showSortSheet = true }) {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -260,6 +250,9 @@ struct PeopleView: View {
         }
         .onChange(of: navigationManager.navigationPath.count) { _, _ in
             loadPeople()
+        }
+        .sheet(isPresented: $showSortSheet) {
+            SortMenuSheet(selectedSort: $selectedSort, onSort: { _ in })
         }
     }
 
