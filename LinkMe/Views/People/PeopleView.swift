@@ -112,7 +112,10 @@ struct PeopleView: View {
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
                             .cornerRadius(8)
-                            .border(LinkMeColors.s200, width: 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -157,8 +160,11 @@ struct PeopleView: View {
                                 .frame(height: 32)
                                 .padding(.horizontal, 12)
                                 .background(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.surface)
-                                .border(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, width: 1)
                                 .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, lineWidth: 1)
+                                )
                         }
                     }
                     Spacer()

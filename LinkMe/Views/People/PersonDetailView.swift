@@ -36,7 +36,10 @@ struct PersonDetailView: View {
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
                             .cornerRadius(16)
-                            .border(LinkMeColors.s200, width: 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
 
                     if navigationManager.navigationPath.count > 1 {
@@ -49,7 +52,10 @@ struct PersonDetailView: View {
                                 .frame(width: 32, height: 32)
                                 .background(LinkMeColors.surface)
                                 .cornerRadius(16)
-                                .border(LinkMeColors.s200, width: 1)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                                )
                         }
                     }
 
@@ -62,7 +68,10 @@ struct PersonDetailView: View {
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
                             .cornerRadius(8)
-                            .border(LinkMeColors.s200, width: 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
 
                     Menu {
@@ -89,7 +98,10 @@ struct PersonDetailView: View {
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
                             .cornerRadius(8)
-                            .border(LinkMeColors.s200, width: 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
                 }
                 .padding(.horizontal, 16)
