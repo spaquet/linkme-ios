@@ -427,8 +427,11 @@ struct TopBar: View {
                         .foregroundColor(LinkMeColors.s600)
                         .frame(width: 40, height: 40)
                         .background(LinkMeColors.surface)
-                        .cornerRadius(12)
-                        .border(LinkMeColors.s200, width: 1)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                        )
                 }
 
                 Button(action: {
@@ -440,8 +443,11 @@ struct TopBar: View {
                             .foregroundColor(LinkMeColors.s600)
                             .frame(width: 40, height: 40)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(12)
-                            .border(LinkMeColors.s200, width: 1)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
 
                         Circle()
                             .fill(LinkMeColors.t500)
