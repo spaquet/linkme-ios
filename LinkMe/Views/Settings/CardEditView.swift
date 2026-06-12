@@ -23,10 +23,29 @@ struct CardEditView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                LinkMeColors.canvas
-                    .ignoresSafeArea()
+        ZStack {
+            LinkMeColors.canvas
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
+                            .background(LinkMeColors.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
 
                 ScrollView {
                     VStack(spacing: 16) {
@@ -346,24 +365,6 @@ struct CardEditView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 18)
                         .padding(.bottom, 20)
-                    }
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s500)
-                            .frame(width: 32, height: 32)
-                            .background(LinkMeColors.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                            )
                     }
                 }
             }

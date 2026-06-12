@@ -154,6 +154,8 @@ struct OnboardingView: View {
             cards: [defaultCard]
         )
         appState.currentUser = user
+
+        DatabaseManager.shared.insertCard(defaultCard)
     }
 }
 

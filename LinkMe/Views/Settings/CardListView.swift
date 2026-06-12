@@ -15,6 +15,41 @@ struct CardListView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s500)
+                                .frame(width: 32, height: 32)
+                                .background(LinkMeColors.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                                )
+                        }
+
+                        Spacer()
+
+                        Button(action: {
+                            cardToEdit = nil
+                            showCardEditView = true
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s500)
+                                .frame(width: 32, height: 32)
+                                .background(LinkMeColors.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Your cards")
                             .font(.system(size: 28, weight: .semibold, design: .default))
@@ -33,7 +68,7 @@ struct CardListView: View {
                         VStack(spacing: 14) {
                             if cards.isEmpty {
                                 VStack(spacing: 12) {
-                                    Image(systemName: "person.card")
+                                    Image(systemName: "person.text.rectangle")
                                         .font(.system(size: 36, weight: .light))
                                         .foregroundColor(LinkMeColors.s300)
 
@@ -80,47 +115,8 @@ struct CardListView: View {
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s500)
-                            .frame(width: 32, height: 32)
-                            .background(LinkMeColors.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                            )
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        cardToEdit = nil
-                        showCardEditView = true
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s500)
-                            .frame(width: 32, height: 32)
-                            .background(LinkMeColors.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                            )
-                    }
-                }
-            }
             .navigationDestination(isPresented: $showCardEditView) {
                 CardEditView(card: cardToEdit)
-                    .onDisappear {
-                        loadCards()
-                    }
             }
             .alert("Delete Card?", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
@@ -134,6 +130,11 @@ struct CardListView: View {
             }
             .onAppear {
                 loadCards()
+            }
+            .onChange(of: showCardEditView) { _, isShowing in
+                if !isShowing {
+                    loadCards()
+                }
             }
         }
     }
