@@ -108,10 +108,10 @@ struct PeopleView: View {
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 36, height: 36)
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(10)
+                            .cornerRadius(8)
                             .border(LinkMeColors.s200, width: 1)
                     }
                 }

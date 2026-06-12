@@ -35,7 +35,7 @@ struct PersonDetailView: View {
                             .foregroundColor(LinkMeColors.s500)
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .cornerRadius(16)
                             .border(LinkMeColors.s200, width: 1)
                     }
 
@@ -48,7 +48,7 @@ struct PersonDetailView: View {
                                 .foregroundColor(LinkMeColors.s500)
                                 .frame(width: 32, height: 32)
                                 .background(LinkMeColors.surface)
-                                .cornerRadius(8)
+                                .cornerRadius(16)
                                 .border(LinkMeColors.s200, width: 1)
                         }
                     }
