@@ -63,7 +63,7 @@ struct CardEditView: View {
                                 .tracking(-0.025)
                                 .foregroundColor(LinkMeColors.ink)
 
-                            Text(card == nil ? "Create a new profile card." : "Update this card's information.")
+                            Text(card == nil ? "Create a new profile card." : "Update \(card?.name ?? "this card")")
                                 .font(.system(size: 15.5, design: .default))
                                 .foregroundColor(LinkMeColors.s500)
                         }
