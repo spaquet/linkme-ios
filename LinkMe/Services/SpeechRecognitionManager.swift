@@ -1,6 +1,6 @@
 import Foundation
 import Speech
-import AVFoundation
+@preconcurrency import AVFoundation
 import CoreMedia
 
 enum PermissionType: Equatable {
@@ -23,7 +23,6 @@ class SpeechRecognitionManager {
     private var recordingTask: Task<Void, Never>?
     private var finalizedTranscript = ""
     private var volatileTranscript = ""
-    private let locale = Locale(identifier: "en-US")
 
     func requestAuthorization(completion: @escaping (PermissionType?) -> Void) {
         AVAudioApplication.requestRecordPermission { granted in
@@ -98,9 +97,7 @@ class SpeechRecognitionManager {
             throw SpeechRecognitionError.transcriberUnavailable
         }
 
-        guard let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
-            throw SpeechRecognitionError.localeUnsupported(locale.identifier)
-        }
+        let supportedLocale = try await selectedTranscriptionLocale()
 
         let transcriber = SpeechTranscriber(
             locale: supportedLocale,
@@ -151,6 +148,21 @@ class SpeechRecognitionManager {
         )
     }
 
+    private func selectedTranscriptionLocale() async throws -> Locale {
+        let preferredLocales = [
+            Locale.autoupdatingCurrent,
+            Locale(identifier: "en-US")
+        ]
+
+        for locale in preferredLocales {
+            if let supportedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: locale) {
+                return supportedLocale
+            }
+        }
+
+        throw SpeechRecognitionError.localeUnsupported(Locale.autoupdatingCurrent.identifier)
+    }
+
     private func ensureModel(for transcriber: SpeechTranscriber) async throws {
         switch await AssetInventory.status(forModules: [transcriber]) {
         case .installed:
@@ -160,6 +172,8 @@ class SpeechRecognitionManager {
                 try await request.downloadAndInstall()
             }
         case .unsupported:
+            throw SpeechRecognitionError.modelUnsupported
+        @unknown default:
             throw SpeechRecognitionError.modelUnsupported
         }
     }

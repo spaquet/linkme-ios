@@ -6,11 +6,9 @@ struct CaptureView: View {
     @State private var aiManager = AIExtractionManager()
     @State private var phase: CapturePhase = .idle
     @State private var seconds = 0
-    @State private var displayedWords = 0
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var timerTask: Task<Void, Never>?
-    @State private var wordRevealTask: Task<Void, Never>?
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -59,7 +57,6 @@ struct CaptureView: View {
                     case .listening:
                         ListeningPhaseView(
                             seconds: seconds,
-                            displayedWords: displayedWords,
                             transcript: speechManager.recognizedText,
                             isRecording: speechManager.isRecording,
                             onStop: stopListening
@@ -101,7 +98,6 @@ struct CaptureView: View {
         }
         .onDisappear {
             timerTask?.cancel()
-            wordRevealTask?.cancel()
             speechManager.cancelRecording()
         }
         .onChange(of: speechManager.error) { _, newValue in
@@ -128,7 +124,6 @@ struct CaptureView: View {
     private func startListening() {
         phase = .listening
         seconds = 0
-        displayedWords = 0
         speechManager.startRecording()
 
         timerTask = Task {
@@ -137,21 +132,10 @@ struct CaptureView: View {
                 seconds += 1
             }
         }
-
-        wordRevealTask = Task {
-            while phase == .listening {
-                try? await Task.sleep(nanoseconds: 165_000_000) // 165ms
-                let words = speechManager.recognizedText.split(separator: " ")
-                if displayedWords < words.count {
-                    displayedWords += 1
-                }
-            }
-        }
     }
 
     private func stopListening() {
         timerTask?.cancel()
-        wordRevealTask?.cancel()
         phase = .processing
 
         Task {
@@ -173,7 +157,6 @@ enum CapturePhase: Equatable {
 // MARK: - Listening Phase
 struct ListeningPhaseView: View {
     let seconds: Int
-    let displayedWords: Int
     let transcript: String
     let isRecording: Bool
     let onStop: () -> Void
@@ -198,16 +181,13 @@ struct ListeningPhaseView: View {
 
                 // Transcript with cursor
                 VStack(spacing: 0) {
-                    let words = transcript.split(separator: " ")
-                    let shown = words.prefix(displayedWords).joined(separator: " ")
-
                     HStack(spacing: 2) {
-                        Text(shown)
+                        Text(transcript)
                             .font(.system(size: 17, weight: .regular, design: .default))
                             .lineLimit(4)
                             .foregroundColor(LinkMeColors.s600)
 
-                        if displayedWords < words.count {
+                        if isRecording {
                             Rectangle()
                                 .fill(LinkMeColors.t500)
                                 .frame(width: 2, height: 18)
