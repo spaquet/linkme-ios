@@ -592,10 +592,15 @@ struct CreateCardView: View {
                         // First name & Last name (2 columns)
                         HStack(spacing: 11) {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("FIRST NAME")
-                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                    .foregroundColor(LinkMeColors.s400)
-                                    .tracking(0.04)
+                                HStack(spacing: 2) {
+                                    Text("FIRST NAME")
+                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                        .foregroundColor(LinkMeColors.s400)
+                                        .tracking(0.04)
+                                    Text("*")
+                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                        .foregroundColor(LinkMeColors.rose500)
+                                }
 
                                 TextField("First name", text: $firstName)
                                     .textFieldStyle(.plain)
@@ -607,6 +612,13 @@ struct CreateCardView: View {
                                     .focused($focusedField, equals: .firstName)
                                     .submitLabel(.next)
                                     .onSubmit { focusedField = .lastName }
+                                    .onChange(of: firstName) { _, newValue in
+                                        if !newValue.isEmpty && focusedField == .firstName && lastName.isEmpty {
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                focusedField = .lastName
+                                            }
+                                        }
+                                    }
                                     .padding(.horizontal, 13)
                                     .padding(.vertical, 12)
                                     .frame(height: 46)
@@ -726,16 +738,21 @@ struct CreateCardView: View {
 
                         // Email
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("EMAIL")
-                                .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                .foregroundColor(LinkMeColors.s400)
-                                .tracking(0.04)
+                            HStack(spacing: 2) {
+                                Text("EMAIL")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
+                                Text("*")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.rose500)
+                            }
 
                             TextField(
                                 "",
                                 text: $email,
                                 prompt: Text("you@company.com")
-                                    .foregroundColor(LinkMeColors.s400)
+                                    .foregroundColor(LinkMeColors.s500)
                             )
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 15, design: .default))
