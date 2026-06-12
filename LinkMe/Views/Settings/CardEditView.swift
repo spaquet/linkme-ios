@@ -26,7 +26,6 @@ struct CardEditView: View {
 
     private var isFormValid: Bool {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty &&
-        !email.trimmingCharacters(in: .whitespaces).isEmpty &&
         !name.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
@@ -270,15 +269,10 @@ struct CardEditView: View {
                             .padding(.horizontal, 16)
 
                             VStack(alignment: .leading, spacing: 5) {
-                                HStack(spacing: 2) {
-                                    Text("EMAIL")
-                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.s400)
-                                        .tracking(0.04)
-                                    Text("*")
-                                        .font(.system(size: 10.5, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.rose500)
-                                }
+                                Text("EMAIL")
+                                    .font(.system(size: 10.5, weight: .semibold, design: .default))
+                                    .foregroundColor(LinkMeColors.s400)
+                                    .tracking(0.04)
 
                                 TextField("you@company.com", text: $email)
                                     .textFieldStyle(.plain)
