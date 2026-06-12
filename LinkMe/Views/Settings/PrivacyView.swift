@@ -4,9 +4,9 @@ struct PrivacyView: View {
     let appState: AppState
     @StateObject private var contactSync = ContactSyncManager.shared
     @State private var cloudEnrichment = false
-    @State private var lifeSignals = true
+    @State private var lifeSignals = false
     @State private var calendar = true
-    @State private var siri = true
+    @State private var siri = false
     @State private var showResetConfirmation = false
 
     private var contactsBinding: Binding<Bool> {
