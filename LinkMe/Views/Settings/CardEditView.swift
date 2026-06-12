@@ -640,72 +640,88 @@ struct LocationPickerSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 12) {
-                HStack {
-                    Text("Location")
-                        .font(.system(size: 18, weight: .semibold, design: .default))
-                        .foregroundColor(LinkMeColors.ink)
-                    Spacer()
-                    Button(action: { isPresented = false }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s500)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        HStack(spacing: 8) {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(LinkMeColors.s400)
-
-                            TextField("e.g., Paris, France", text: $locationInput)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 15, design: .default))
-                                .foregroundColor(LinkMeColors.ink)
-                                .accentColor(LinkMeColors.t500)
-
-                            if !locationInput.isEmpty {
-                                Button(action: { locationInput = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(LinkMeColors.s400)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(LinkMeColors.surface)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(LinkMeColors.s200, lineWidth: 1)
-                        )
-
-                        Button(action: {
-                            locationManager.requestLocation()
-                        }) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 40, height: 40)
-                                .background(LinkMeColors.t500)
-                                .cornerRadius(10)
-                        }
-                    }
-
-                    Text("Format: City, State/Country (e.g., Los Angeles, CA, USA or Mumbai, India)")
-                        .font(.system(size: 12, design: .default))
+            HStack {
+                Text("Where are you?")
+                    .font(.system(size: 22, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.ink)
+                Spacer()
+                Button(action: { isPresented = false }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(LinkMeColors.s500)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 12)
-                .background(LinkMeColors.s50)
-                .cornerRadius(10)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+
+            VStack(spacing: 20) {
+                VStack(spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+
+                        TextField("Paris, France", text: $locationInput)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 17, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
+                            .accentColor(LinkMeColors.t500)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(LinkMeColors.surface)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(LinkMeColors.s200, lineWidth: 1)
+                    )
+
+                    Text("Format: City, State, Country")
+                        .font(.system(size: 13, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                VStack(spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(LinkMeColors.t500)
+
+                        Text(locationManager.isLoading ? "Getting location..." : "Use device location")
+                            .font(.system(size: 17, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
+
+                        Spacer()
+
+                        if locationManager.isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8, anchor: .center)
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s400)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(LinkMeColors.surface)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(LinkMeColors.s200, lineWidth: 1)
+                    )
+                    .onTapGesture {
+                        if !locationManager.isLoading {
+                            locationManager.requestLocation()
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
 
             Spacer()
 
@@ -727,7 +743,7 @@ struct LocationPickerSheet: View {
                 .disabled(locationInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 .opacity(locationInput.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
             }
-            .padding(16)
+            .padding(20)
             .background(LinkMeColors.canvas)
         }
         .background(LinkMeColors.canvas)
@@ -745,6 +761,8 @@ struct LocationPickerSheet: View {
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     @Published var currentLocation: String?
+    @Published var isLoading = false
+    private var isRequestingAfterAuth = false
 
     override init() {
         super.init()
@@ -755,11 +773,21 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         let status = CLLocationManager.authorizationStatus()
         switch status {
         case .notDetermined:
+            isRequestingAfterAuth = true
             locationManager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse, .authorizedAlways:
+            isLoading = true
             locationManager.requestLocation()
         default:
             break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        if isRequestingAfterAuth && (status == .authorizedWhenInUse || status == .authorizedAlways) {
+            isRequestingAfterAuth = false
+            isLoading = true
+            locationManager.requestLocation()
         }
     }
 
@@ -784,12 +812,16 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 let formattedLocation = components.joined(separator: ", ")
                 DispatchQueue.main.async {
                     self?.currentLocation = formattedLocation
+                    self?.isLoading = false
                 }
             }
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        DispatchQueue.main.async {
+            self.isLoading = false
+        }
     }
 }
 
