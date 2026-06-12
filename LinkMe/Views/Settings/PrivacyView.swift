@@ -8,7 +8,6 @@ struct PrivacyView: View {
     @State private var calendar = true
     @State private var siri = false
     @State private var showResetConfirmation = false
-    @State private var showCardList = false
 
     private var contactsBinding: Binding<Bool> {
         Binding(
@@ -133,8 +132,8 @@ struct PrivacyView: View {
                                     }
 
                                     Divider(inset: 63)
-
-                        }
+                                }
+                            }
                         }
 
                         // What needs your permission

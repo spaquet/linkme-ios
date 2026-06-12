@@ -4,6 +4,7 @@ struct CardListView: View {
     @Environment(\.dismiss) var dismiss
     @State private var cards: [CardModel] = []
     @State private var cardToEdit: CardModel?
+    @State private var showCardEditView = false
     @State private var showDeleteConfirmation = false
     @State private var cardToDelete: CardModel?
 
@@ -54,7 +55,10 @@ struct CardListView: View {
                                                 card: card,
                                                 isDefault: card.isDefault,
                                                 onSelect: { setDefault(card) },
-                                                onEdit: { cardToEdit = card },
+                                                onEdit: {
+                                                    cardToEdit = card
+                                                    showCardEditView = true
+                                                },
                                                 onDelete: {
                                                     cardToDelete = card
                                                     showDeleteConfirmation = true
@@ -69,10 +73,6 @@ struct CardListView: View {
                                     }
                                 }
                                 .padding(.horizontal, 16)
-                            }
-
-                            NavigationLink(value: cardToEdit) {
-                                EmptyView()
                             }
                         }
                         .padding(.vertical, 18)
@@ -96,15 +96,21 @@ struct CardListView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(value: nil) {
+                    Button(action: {
+                        cardToEdit = nil
+                        showCardEditView = true
+                    }) {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.t600)
                     }
                 }
             }
-            .navigationDestination(value: $cardToEdit) { card in
-                CardEditView(card: card)
+            .navigationDestination(isPresented: $showCardEditView) {
+                CardEditView(card: cardToEdit)
+                    .onDisappear {
+                        loadCards()
+                    }
             }
             .alert("Delete Card?", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
