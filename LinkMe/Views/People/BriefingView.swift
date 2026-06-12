@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct BriefingView: View {
     let person: PersonModel
@@ -7,6 +8,15 @@ struct BriefingView: View {
     @State private var sharedConnections: [PersonModel] = []
     @Environment(\.dismiss) var dismiss
 
+    private var briefingLocation: String {
+        let trimmed = person.location.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Location not set" : trimmed
+    }
+
+    private var hasLocation: Bool {
+        !person.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         ZStack {
             LinkMeColors.canvas
@@ -14,33 +24,41 @@ struct BriefingView: View {
 
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    Button(action: { dismiss() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Back")
+                VStack(spacing: 0) {
+                    ZStack {
+                        HStack {
+                            Button(action: { dismiss() }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(LinkMeColors.s600)
+                            }
+
+                            Spacer()
+
+                            Button(action: {}) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(LinkMeColors.s600)
+                                    .frame(width: 38, height: 38)
+                                    .background(LinkMeColors.surface)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                                    )
+                            }
                         }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(LinkMeColors.t700)
+
+                        Text("Brief")
+                            .font(.system(size: 18, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
                     }
+                    .padding(16)
+                    .padding(.top, 12)
 
-                    Spacer()
-
-                    Text("Brief")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(LinkMeColors.ink)
-
-                    Spacer()
-
-                    Button(action: {}) {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s600)
-                    }
+                    Divider()
+                        .foregroundColor(LinkMeColors.s200)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
 
                 // Content
                 ScrollView {
@@ -89,6 +107,18 @@ struct BriefingView: View {
                                 .padding(16)
                                 .background(LinkMeColors.t50)
                             }
+                        }
+
+                        // Location
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel("Location")
+
+                            LocationCard(
+                                location: briefingLocation,
+                                hasLocation: hasLocation,
+                                onOpenMap: openMap,
+                                onBookUber: bookUber
+                            )
                         }
 
                         // Open threads
@@ -176,6 +206,123 @@ struct BriefingView: View {
     private func loadBriefingData() {
         openThreads = MockDataManager.getThreadsForPerson(person.id)
         sharedConnections = MockDataManager.getSharedConnections(for: person.id)
+    }
+
+    private func openMap() {
+        guard
+            hasLocation,
+            let encodedLocation = encodedLocation,
+            let url = URL(string: "http://maps.apple.com/?q=\(encodedLocation)")
+        else { return }
+
+        open(url)
+    }
+
+    private func bookUber() {
+        guard
+            hasLocation,
+            let encodedLocation = encodedLocation,
+            let appURL = URL(string: "uber://?action=setPickup&pickup=my_location&dropoff[formatted_address]=\(encodedLocation)"),
+            let webURL = URL(string: "https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=\(encodedLocation)")
+        else { return }
+
+        UIApplication.shared.open(appURL, options: [:]) { opened in
+            if !opened {
+                self.open(webURL)
+            }
+        }
+    }
+
+    private var encodedLocation: String? {
+        var allowedCharacters = CharacterSet.urlQueryAllowed
+        allowedCharacters.remove(charactersIn: "&=+")
+
+        return person.location.trimmingCharacters(in: .whitespacesAndNewlines)
+            .addingPercentEncoding(withAllowedCharacters: allowedCharacters)
+    }
+
+    private func open(_ url: URL) {
+        UIApplication.shared.open(url)
+    }
+}
+
+// MARK: - Location Card
+struct LocationCard: View {
+    let location: String
+    let hasLocation: Bool
+    let onOpenMap: () -> Void
+    let onBookUber: () -> Void
+
+    var body: some View {
+        Card(padding: 14) {
+            VStack(alignment: .leading, spacing: 13) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(LinkMeColors.t600)
+                        .frame(width: 34, height: 34)
+                        .background(LinkMeColors.t50)
+                        .cornerRadius(11)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 11)
+                                .strokeBorder(LinkMeColors.t200, lineWidth: 1)
+                        )
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(location)
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .foregroundColor(hasLocation ? LinkMeColors.ink : LinkMeColors.s500)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Text(hasLocation ? "Use Maps for directions or request a ride." : "Add an address to enable directions and rides.")
+                            .font(.system(size: 12.5, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(spacing: 8) {
+                    Button(action: onOpenMap) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "map")
+                                .font(.system(size: 15, weight: .semibold))
+
+                            Text("Map")
+                                .font(.system(size: 13.5, weight: .semibold, design: .default))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .foregroundColor(hasLocation ? LinkMeColors.s600 : LinkMeColors.s300)
+                        .background(LinkMeColors.surface)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                        )
+                    }
+                    .disabled(!hasLocation)
+
+                    Button(action: onBookUber) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "car.fill")
+                                .font(.system(size: 15, weight: .semibold))
+
+                            Text("Uber")
+                                .font(.system(size: 13.5, weight: .semibold, design: .default))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .foregroundColor(hasLocation ? .white : LinkMeColors.s300)
+                        .background(hasLocation ? LinkMeColors.ink : LinkMeColors.s100)
+                        .cornerRadius(12)
+                    }
+                    .disabled(!hasLocation)
+                }
+            }
+        }
     }
 }
 
