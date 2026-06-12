@@ -1,11 +1,13 @@
 import SwiftUI
 
 struct PrivacyView: View {
+    let appState: AppState
     @State private var cloudEnrichment = false
     @State private var lifeSignals = true
     @State private var calendar = true
     @State private var contacts = true
     @State private var siri = true
+    @State private var showResetConfirmation = false
 
     var body: some View {
         ZStack {
@@ -177,12 +179,35 @@ struct PrivacyView: View {
                                 .foregroundColor(LinkMeColors.s400)
                         }
                         .padding(.top, 8)
+
+                        Button(action: { showResetConfirmation = true }) {
+                            HStack {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Reset app for testing")
+                                    .font(.system(size: 14, weight: .semibold, design: .default))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(14)
+                            .foregroundColor(.white)
+                            .background(LinkMeColors.s500)
+                            .cornerRadius(12)
+                        }
+                        .padding(.top, 24)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 18)
                     .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                 }
             }
+        }
+        .alert("Reset App?", isPresented: $showResetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                appState.reset()
+            }
+        } message: {
+            Text("This will clear all data and return you to onboarding.")
         }
     }
 }
@@ -285,5 +310,5 @@ struct CustomToggle: View {
 }
 
 #Preview {
-    PrivacyView()
+    PrivacyView(appState: AppState())
 }

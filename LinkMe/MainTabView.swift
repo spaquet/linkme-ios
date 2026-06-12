@@ -24,7 +24,7 @@ struct MainTabView: View {
                     ThreadsView(navigationManager: navigationManager)
                         .tag(3)
 
-                    PrivacyView()
+                    PrivacyView(appState: appState)
                         .tag(4)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
