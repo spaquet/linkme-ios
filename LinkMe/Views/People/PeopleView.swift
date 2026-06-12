@@ -5,11 +5,15 @@ struct PeopleView: View {
     @Binding var selectedTab: Int
     @StateObject private var contactSync = ContactSyncManager.shared
     @State private var people: [PersonModel] = []
+    @State private var totalPeopleCount = 0
     @State private var searchText = ""
     @State private var selectedFilter = "All"
     @State private var selectedSort = PersonSortOption.capturedRecent
+    @State private var isLoadingPeople = false
+    @State private var hasMorePeople = true
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
+    private let pageSize = 40
 
     private func formatLastContact(_ date: Date?) -> String {
         guard let date = date else { return "Never" }
@@ -32,18 +36,6 @@ struct PeopleView: View {
         } else {
             return "Today"
         }
-    }
-
-    private var filteredPeople: [PersonModel] {
-        var result = people
-
-        // Filter by name search
-        if !searchText.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-        }
-
-        // Sort
-        return PersonSortManager.sort(result, by: selectedSort)
     }
 
     private func contactDetail(for person: PersonModel) -> String {
@@ -92,7 +84,7 @@ struct PeopleView: View {
                             .tracking(-0.02)
                             .foregroundColor(LinkMeColors.ink)
 
-                        Text("\(people.count) contacts · all on this device")
+                        Text("\(totalPeopleCount) contacts · all on this device")
                             .font(.system(size: 13, weight: .regular, design: .default))
                             .foregroundColor(LinkMeColors.s500)
                     }
@@ -137,6 +129,16 @@ struct PeopleView: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 14.5, design: .default))
                         .foregroundColor(LinkMeColors.ink)
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s400)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Clear search")
+                    }
                 }
                 .padding(.horizontal, 11)
                 .padding(.vertical, 9)
@@ -145,29 +147,31 @@ struct PeopleView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
 
-                // Filter chips
-                HStack(spacing: 6) {
+                // Filter buttons
+                HStack(spacing: 8) {
                     ForEach(filters, id: \.self) { filter in
                         Button(action: { selectedFilter = filter }) {
                             Text(filter)
                                 .font(.system(size: 13, weight: .semibold, design: .default))
                                 .foregroundColor(selectedFilter == filter ? .white : LinkMeColors.s600)
-                                .frame(height: 30)
-                                .padding(.horizontal, 12)
+                                .frame(height: 34)
+                                .padding(.horizontal, 14)
                                 .background(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.surface)
                                 .border(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, width: 1)
-                                .cornerRadius(999)
+                                .cornerRadius(LinkMeLayout.cornerRadius)
                         }
                     }
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 9)
+                .padding(.vertical, 10)
 
                 // List
-                if people.isEmpty {
+                if people.isEmpty && isLoadingPeople {
+                    loadingState
+                } else if people.isEmpty && searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedFilter == "All" {
                     emptyState
-                } else if filteredPeople.isEmpty {
+                } else if people.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 36, weight: .light))
@@ -186,19 +190,19 @@ struct PeopleView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 0) {
-                            ForEach(filteredPeople.indices, id: \.self) { index in
+                            ForEach(people.indices, id: \.self) { index in
                                 Button(action: {
-                                    navigationManager.openPersonDetail(filteredPeople[index])
+                                    navigationManager.openPersonDetail(people[index])
                                 }) {
                                     HStack(spacing: 11) {
-                                        Avatar(name: filteredPeople[index].name, size: 42)
+                                        Avatar(name: people[index].name, size: 42)
 
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(filteredPeople[index].name)
+                                            Text(people[index].name)
                                                 .font(.system(size: 14.5, weight: .semibold, design: .default))
                                                 .foregroundColor(LinkMeColors.ink)
 
-                                            Text(contactDetail(for: filteredPeople[index]))
+                                            Text(contactDetail(for: people[index]))
                                                 .font(.system(size: 12.5, design: .default))
                                                 .foregroundColor(LinkMeColors.s500)
                                         }
@@ -206,7 +210,7 @@ struct PeopleView: View {
                                         Spacer()
 
                                         VStack(alignment: .trailing, spacing: 2) {
-                                            Text(formatLastContact(filteredPeople[index].lastContact))
+                                            Text(formatLastContact(people[index].lastContact))
                                                 .font(.system(size: 11, weight: .regular, design: .default))
                                                 .foregroundColor(LinkMeColors.s400)
 
@@ -220,11 +224,27 @@ struct PeopleView: View {
                                     .padding(.vertical, 10)
                                     .background(LinkMeColors.canvas)
                                 }
+                                .onAppear {
+                                    loadMorePeopleIfNeeded(currentIndex: index)
+                                }
 
-                                if index < filteredPeople.count - 1 {
+                                if index < people.count - 1 {
                                     Divider()
                                         .padding(.horizontal, 14)
                                 }
+                            }
+
+                            if isLoadingPeople {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                        .controlSize(.small)
+
+                                    Text("Loading")
+                                        .font(.system(size: 12.5, weight: .semibold, design: .default))
+                                        .foregroundColor(LinkMeColors.s500)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                             }
                         }
                         .background(LinkMeColors.surface)
@@ -237,25 +257,44 @@ struct PeopleView: View {
             }
         }
         .onAppear {
-            loadPeople()
+            reloadPeople()
             Task {
                 if contactSync.isEnabled {
                     await contactSync.sync()
-                    loadPeople()
+                    reloadPeople()
                 }
             }
         }
         .onChange(of: contactSync.state) { _, state in
             if state == .synced {
-                loadPeople()
+                reloadPeople()
             }
         }
         .onChange(of: navigationManager.navigationPath.count) { _, _ in
-            loadPeople()
+            reloadPeople()
         }
         .onChange(of: selectedFilter) { _, _ in
-            loadPeople()
+            reloadPeople()
         }
+        .onChange(of: selectedSort) { _, _ in
+            reloadPeople()
+        }
+        .onChange(of: searchText) { _, _ in
+            reloadPeople()
+        }
+    }
+
+    private var loadingState: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.regular)
+
+            Text("Loading people")
+                .font(.system(size: 13, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.s500)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.bottom, LinkMeLayout.tabBarHeight)
     }
 
     private var emptyState: some View {
@@ -325,16 +364,62 @@ struct PeopleView: View {
         }
     }
 
-    private func loadPeople() {
+    private func reloadPeople() {
+        people = []
+        hasMorePeople = true
+        totalPeopleCount = 0
+        loadPeoplePage(reset: true)
+    }
+
+    private func loadMorePeopleIfNeeded(currentIndex: Int) {
+        guard currentIndex >= people.count - 8 else { return }
+        loadPeoplePage(reset: false)
+    }
+
+    private func loadPeoplePage(reset: Bool) {
+        guard !isLoadingPeople else { return }
+        guard reset || hasMorePeople else { return }
+
+        isLoadingPeople = true
+        let offset = reset ? 0 : people.count
+        let query = peopleQuery()
+        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let nextPeople = DatabaseManager.shared.fetchPeople(
+            searchText: trimmedSearch,
+            matchingTags: query.tags,
+            partialTagMatch: query.partialMatch,
+            sortedBy: selectedSort,
+            limit: pageSize,
+            offset: offset
+        )
+        let count = DatabaseManager.shared.countPeople(
+            searchText: trimmedSearch,
+            matchingTags: query.tags,
+            partialTagMatch: query.partialMatch
+        )
+
+        if reset {
+            people = nextPeople
+        } else {
+            people.append(contentsOf: nextPeople)
+        }
+
+        totalPeopleCount = count
+        hasMorePeople = people.count < count
+        isLoadingPeople = false
+    }
+
+    private func peopleQuery() -> (tags: [String], partialMatch: Bool) {
         switch selectedFilter {
         case "Investors":
-            people = DatabaseManager.shared.fetchPeople(matchingTags: ["Investor", "Angel"], partialMatch: true)
+            return (["Investor", "Angel"], true)
         case "Founders":
-            people = DatabaseManager.shared.fetchPeople(tagged: "Founder")
+            return (["Founder"], false)
         case "Execs":
-            people = DatabaseManager.shared.fetchPeople(matchingTags: ["Exec", "Buyer"], partialMatch: true)
+            return (["Exec", "Buyer"], true)
         default:
-            people = DatabaseManager.shared.fetchPeople()
+            return ([], false)
         }
     }
 }
