@@ -39,7 +39,7 @@ struct MainTabView: View {
             CaptureView()
         }
         .sheet(item: $navigationManager.showBriefingSheet) { person in
-            BriefingView(person: person)
+            BriefingView(person: person, navigationManager: navigationManager)
         }
         .sheet(item: .constant(navigationManager.showFollowupSheet.map { FollowupSheetData(person: $0.person, nudge: $0.nudge) })) { data in
             FollowupView(

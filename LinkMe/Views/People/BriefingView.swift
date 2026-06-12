@@ -3,9 +3,11 @@ import UIKit
 
 struct BriefingView: View {
     let person: PersonModel
+    let navigationManager: NavigationManager
     @State private var briefingSummary = "Lead with the fund close. He owes you the data-infra memo; you offered an intro."
     @State private var openThreads: [ThreadModel] = []
     @State private var sharedConnections: [PersonModel] = []
+    @State private var showAddNote = false
     @Environment(\.dismiss) var dismiss
 
     private var briefingLocation: String {
@@ -178,10 +180,12 @@ struct BriefingView: View {
                         // Actions
                         VStack(spacing: 10) {
                             PrimaryButton("Add note", tone: .teal) {
-                                // Open capture
+                                showAddNote = true
                             }
 
-                            Button(action: {}) {
+                            Button(action: {
+                                navigationManager.openPersonDetail(person)
+                            }) {
                                 Text("View full profile")
                                     .font(.system(size: 16, weight: .semibold, design: .default))
                                     .foregroundColor(LinkMeColors.ink)
@@ -200,6 +204,9 @@ struct BriefingView: View {
         }
         .onAppear {
             loadBriefingData()
+        }
+        .sheet(isPresented: $showAddNote) {
+            AddNoteView(person: person, isPresented: $showAddNote)
         }
     }
 
@@ -353,5 +360,8 @@ struct ThreadItemView: View {
 
 
 #Preview {
-    BriefingView(person: PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"))
+    BriefingView(
+        person: PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"),
+        navigationManager: NavigationManager()
+    )
 }
