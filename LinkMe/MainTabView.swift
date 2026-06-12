@@ -167,22 +167,5 @@ struct TabBarItem: View {
 }
 
 #Preview {
-    let appState = AppState()
-    let defaultCard = CardModel(
-        firstName: "Marcus",
-        lastName: "Chen",
-        email: "marcus@meridian.com",
-        role: "General Partner",
-        company: "Meridian Ventures",
-        isDefault: true
-    )
-    appState.currentUser = UserModel(
-        firstName: "Marcus",
-        lastName: "Chen",
-        email: "marcus@meridian.com",
-        role: "General Partner",
-        company: "Meridian Ventures",
-        cards: [defaultCard]
-    )
-    return MainTabView(appState: appState)
+    MainTabView(appState: AppState())
 }

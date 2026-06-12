@@ -2,6 +2,8 @@ import Foundation
 
 struct CardModel: Codable, Identifiable {
     let id: String
+    var name: String
+    var nickname: String?
     var firstName: String
     var lastName: String?
     var email: String
@@ -23,7 +25,7 @@ struct CardModel: Codable, Identifiable {
     var updatedAt: Date
     var deletedAt: Date?
 
-    var name: String {
+    var fullName: String {
         if let lastName = lastName {
             return "\(firstName) \(lastName)"
         }
@@ -32,6 +34,8 @@ struct CardModel: Codable, Identifiable {
 
     init(
         id: String = UUID().uuidString,
+        name: String,
+        nickname: String? = nil,
         firstName: String,
         lastName: String? = nil,
         email: String,
@@ -51,6 +55,8 @@ struct CardModel: Codable, Identifiable {
         sharedPublicly: Bool = false
     ) {
         self.id = id
+        self.name = name
+        self.nickname = nickname
         self.firstName = firstName
         self.lastName = lastName
         self.email = email

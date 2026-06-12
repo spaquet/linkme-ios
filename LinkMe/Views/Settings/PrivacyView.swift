@@ -98,7 +98,7 @@ struct PrivacyView: View {
 
                             Card(padding: 0) {
                                 VStack(spacing: 0) {
-                                    NavigationLink(destination: CardListView()) {
+                                    NavigationLink(destination: CardListView(appState: appState)) {
                                         HStack(alignment: .top, spacing: 12) {
                                             Image(systemName: "person.text.rectangle")
                                                 .font(.system(size: 16, weight: .semibold))
@@ -116,7 +116,7 @@ struct PrivacyView: View {
                                                     .font(.system(size: 16, weight: .semibold, design: .default))
                                                     .foregroundColor(LinkMeColors.ink)
 
-                                                Text("Manage profile cards and set a default")
+                                                Text("Manage your profile cards")
                                                     .font(.system(size: 13.5, design: .default))
                                                     .foregroundColor(LinkMeColors.s500)
                                                     .lineHeight(1.4)

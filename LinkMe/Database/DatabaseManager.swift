@@ -166,6 +166,8 @@ class DatabaseManager {
         let cards = """
         CREATE TABLE IF NOT EXISTS cards (
             id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            nickname TEXT,
             first_name TEXT NOT NULL,
             last_name TEXT,
             email TEXT NOT NULL,
@@ -199,6 +201,7 @@ class DatabaseManager {
         }
 
         migratePeopleSchema()
+        migrateCardsSchema()
         backfillPersonTags()
     }
 
@@ -553,6 +556,11 @@ class DatabaseManager {
         addColumnIfMissing(table: "people", column: "apple_contact_snapshot_json", definition: "TEXT")
     }
 
+    private func migrateCardsSchema() {
+        addColumnIfMissing(table: "cards", column: "name", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfMissing(table: "cards", column: "nickname", definition: "TEXT")
+    }
+
     private func backfillPersonTags() {
         let sql = """
         SELECT id, tags
@@ -742,35 +750,37 @@ class DatabaseManager {
 
     func insertCard(_ card: CardModel) {
         let sql = """
-        INSERT INTO cards (id, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO cards (id, name, nickname, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
             bindText(statement, 1, card.id)
-            bindText(statement, 2, card.firstName)
-            bindText(statement, 3, card.lastName)
-            bindText(statement, 4, card.email)
-            bindText(statement, 5, card.phone)
-            bindText(statement, 6, card.avatar)
-            bindText(statement, 7, card.role)
-            bindText(statement, 8, card.company)
-            bindText(statement, 9, card.bio)
-            bindText(statement, 10, card.tagline)
-            bindText(statement, 11, card.location)
-            bindText(statement, 12, card.timezone)
-            bindText(statement, 13, card.pronouns)
-            bindText(statement, 14, encodeNestedJSON(card.socialLinks))
-            bindText(statement, 15, encodeNestedJSON(card.paymentLinks))
-            bindText(statement, 16, encodeNestedJSON(card.chatApps))
-            sqlite3_bind_int(statement, 17, card.isDefault ? 1 : 0)
-            sqlite3_bind_int(statement, 18, card.sharedPublicly ? 1 : 0)
-            sqlite3_bind_int64(statement, 19, Int64(card.createdAt.timeIntervalSince1970))
-            sqlite3_bind_int64(statement, 20, Int64(card.updatedAt.timeIntervalSince1970))
+            bindText(statement, 2, card.name)
+            bindText(statement, 3, card.nickname)
+            bindText(statement, 4, card.firstName)
+            bindText(statement, 5, card.lastName)
+            bindText(statement, 6, card.email)
+            bindText(statement, 7, card.phone)
+            bindText(statement, 8, card.avatar)
+            bindText(statement, 9, card.role)
+            bindText(statement, 10, card.company)
+            bindText(statement, 11, card.bio)
+            bindText(statement, 12, card.tagline)
+            bindText(statement, 13, card.location)
+            bindText(statement, 14, card.timezone)
+            bindText(statement, 15, card.pronouns)
+            bindText(statement, 16, encodeNestedJSON(card.socialLinks))
+            bindText(statement, 17, encodeNestedJSON(card.paymentLinks))
+            bindText(statement, 18, encodeNestedJSON(card.chatApps))
+            sqlite3_bind_int(statement, 19, card.isDefault ? 1 : 0)
+            sqlite3_bind_int(statement, 20, card.sharedPublicly ? 1 : 0)
+            sqlite3_bind_int64(statement, 21, Int64(card.createdAt.timeIntervalSince1970))
+            sqlite3_bind_int64(statement, 22, Int64(card.updatedAt.timeIntervalSince1970))
 
             if sqlite3_step(statement) == SQLITE_DONE {
-                print("✓ Card inserted: \(card.firstName)")
+                print("✓ Card inserted: \(card.name)")
             }
         }
         sqlite3_finalize(statement)
@@ -779,7 +789,7 @@ class DatabaseManager {
     func updateCard(_ card: CardModel) {
         let sql = """
         UPDATE cards SET
-            first_name = ?, last_name = ?, email = ?, phone = ?, avatar = ?,
+            name = ?, nickname = ?, first_name = ?, last_name = ?, email = ?, phone = ?, avatar = ?,
             role = ?, company = ?, bio = ?, tagline = ?, location = ?,
             timezone = ?, pronouns = ?, social_links = ?, payment_links = ?,
             chat_apps = ?, is_default = ?, shared_publicly = ?, updated_at = ?
@@ -788,28 +798,30 @@ class DatabaseManager {
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            bindText(statement, 1, card.firstName)
-            bindText(statement, 2, card.lastName)
-            bindText(statement, 3, card.email)
-            bindText(statement, 4, card.phone)
-            bindText(statement, 5, card.avatar)
-            bindText(statement, 6, card.role)
-            bindText(statement, 7, card.company)
-            bindText(statement, 8, card.bio)
-            bindText(statement, 9, card.tagline)
-            bindText(statement, 10, card.location)
-            bindText(statement, 11, card.timezone)
-            bindText(statement, 12, card.pronouns)
-            bindText(statement, 13, encodeNestedJSON(card.socialLinks))
-            bindText(statement, 14, encodeNestedJSON(card.paymentLinks))
-            bindText(statement, 15, encodeNestedJSON(card.chatApps))
-            sqlite3_bind_int(statement, 16, card.isDefault ? 1 : 0)
-            sqlite3_bind_int(statement, 17, card.sharedPublicly ? 1 : 0)
-            sqlite3_bind_int64(statement, 18, Int64(Date().timeIntervalSince1970))
-            bindText(statement, 19, card.id)
+            bindText(statement, 1, card.name)
+            bindText(statement, 2, card.nickname)
+            bindText(statement, 3, card.firstName)
+            bindText(statement, 4, card.lastName)
+            bindText(statement, 5, card.email)
+            bindText(statement, 6, card.phone)
+            bindText(statement, 7, card.avatar)
+            bindText(statement, 8, card.role)
+            bindText(statement, 9, card.company)
+            bindText(statement, 10, card.bio)
+            bindText(statement, 11, card.tagline)
+            bindText(statement, 12, card.location)
+            bindText(statement, 13, card.timezone)
+            bindText(statement, 14, card.pronouns)
+            bindText(statement, 15, encodeNestedJSON(card.socialLinks))
+            bindText(statement, 16, encodeNestedJSON(card.paymentLinks))
+            bindText(statement, 17, encodeNestedJSON(card.chatApps))
+            sqlite3_bind_int(statement, 18, card.isDefault ? 1 : 0)
+            sqlite3_bind_int(statement, 19, card.sharedPublicly ? 1 : 0)
+            sqlite3_bind_int64(statement, 20, Int64(Date().timeIntervalSince1970))
+            bindText(statement, 21, card.id)
 
             if sqlite3_step(statement) == SQLITE_DONE {
-                print("✓ Card updated: \(card.firstName)")
+                print("✓ Card updated: \(card.name)")
             }
         }
         sqlite3_finalize(statement)
@@ -828,7 +840,7 @@ class DatabaseManager {
 
     func fetchCards() -> [CardModel] {
         let sql = """
-        SELECT id, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at
+        SELECT id, name, nickname, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at
         FROM cards
         WHERE deleted_at IS NULL
         ORDER BY is_default DESC, created_at DESC
@@ -862,36 +874,39 @@ class DatabaseManager {
 
     private func cardFromRow(_ statement: OpaquePointer?) -> CardModel? {
         guard let id = columnText(statement, 0),
-              let firstName = columnText(statement, 1),
-              let email = columnText(statement, 3),
-              let role = columnText(statement, 6),
-              let company = columnText(statement, 7) else {
+              let name = columnText(statement, 1),
+              let firstName = columnText(statement, 3),
+              let email = columnText(statement, 5),
+              let role = columnText(statement, 8),
+              let company = columnText(statement, 9) else {
             return nil
         }
 
         var card = CardModel(
             id: id,
+            name: name,
+            nickname: columnText(statement, 2),
             firstName: firstName,
-            lastName: columnText(statement, 2),
+            lastName: columnText(statement, 4),
             email: email,
-            phone: columnText(statement, 4),
-            avatar: columnText(statement, 5),
+            phone: columnText(statement, 6),
+            avatar: columnText(statement, 7),
             role: role,
             company: company,
-            bio: columnText(statement, 8),
-            tagline: columnText(statement, 9),
-            location: columnText(statement, 10),
-            timezone: columnText(statement, 11),
-            pronouns: columnText(statement, 12),
-            socialLinks: decodeNestedJSON(columnText(statement, 13)) ?? [],
-            paymentLinks: decodeNestedJSON(columnText(statement, 14)) ?? [],
-            chatApps: decodeNestedJSON(columnText(statement, 15)) ?? [],
-            isDefault: sqlite3_column_int(statement, 16) == 1,
-            sharedPublicly: sqlite3_column_int(statement, 17) == 1
+            bio: columnText(statement, 10),
+            tagline: columnText(statement, 11),
+            location: columnText(statement, 12),
+            timezone: columnText(statement, 13),
+            pronouns: columnText(statement, 14),
+            socialLinks: decodeNestedJSON(columnText(statement, 15)) ?? [],
+            paymentLinks: decodeNestedJSON(columnText(statement, 16)) ?? [],
+            chatApps: decodeNestedJSON(columnText(statement, 17)) ?? [],
+            isDefault: sqlite3_column_int(statement, 18) == 1,
+            sharedPublicly: sqlite3_column_int(statement, 19) == 1
         )
 
-        card.createdAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 18)))
-        card.updatedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 19)))
+        card.createdAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 20)))
+        card.updatedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 21)))
 
         return card
     }

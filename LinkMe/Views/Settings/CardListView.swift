@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CardListView: View {
+    let appState: AppState
     @Environment(\.dismiss) var dismiss
     @State private var cards: [CardModel] = []
     @State private var cardToEdit: CardModel?
@@ -55,7 +56,7 @@ struct CardListView: View {
                             .tracking(-0.02)
                             .foregroundColor(LinkMeColors.ink)
 
-                        Text("Manage your profile cards and select a default")
+                        Text("Manage your profile cards")
                             .font(.system(size: 13.5, weight: .regular, design: .default))
                             .foregroundColor(LinkMeColors.s500)
                     }
@@ -215,5 +216,5 @@ struct CardRow: View {
 }
 
 #Preview {
-    CardListView()
+    CardListView(appState: AppState())
 }

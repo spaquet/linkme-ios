@@ -133,7 +133,9 @@ struct OnboardingView: View {
     }
 
     private func saveUser() {
+        let cardName = "\(firstName)'s Card"
         let defaultCard = CardModel(
+            name: cardName,
             firstName: firstName,
             lastName: lastName.isEmpty ? nil : lastName,
             email: email,
@@ -147,11 +149,7 @@ struct OnboardingView: View {
         let user = UserModel(
             firstName: firstName,
             lastName: lastName.isEmpty ? nil : lastName,
-            email: email,
-            role: role,
-            company: company,
-            tagline: tagline.isEmpty ? nil : tagline,
-            cards: [defaultCard]
+            cards: []
         )
         appState.currentUser = user
 

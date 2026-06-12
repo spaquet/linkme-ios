@@ -750,23 +750,5 @@ extension Text {
 }
 
 #Preview {
-    let appState = AppState()
-    let defaultCard = CardModel(
-        firstName: "Marcus",
-        lastName: "Chen",
-        email: "marcus@meridian.com",
-        role: "General Partner",
-        company: "Meridian Ventures",
-        isDefault: true
-    )
-    appState.currentUser = UserModel(
-        firstName: "Marcus",
-        lastName: "Chen",
-        email: "marcus@meridian.com",
-        role: "General Partner",
-        company: "Meridian Ventures",
-        cards: [defaultCard]
-    )
-    @State var selectedTab = 0
-    return TodayView(navigationManager: NavigationManager(), appState: appState, selectedTab: $selectedTab)
+    TodayView(navigationManager: NavigationManager(), appState: AppState(), selectedTab: .constant(0))
 }

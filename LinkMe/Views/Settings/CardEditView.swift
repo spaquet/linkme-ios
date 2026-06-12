@@ -3,6 +3,8 @@ import SwiftUI
 struct CardEditView: View {
     @Environment(\.dismiss) var dismiss
     let card: CardModel?
+    @State private var name = ""
+    @State private var nickname = ""
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var email = ""
@@ -388,6 +390,8 @@ struct CardEditView: View {
         }
         .onAppear {
             if let card = card {
+                name = card.name
+                nickname = card.nickname ?? ""
                 firstName = card.firstName
                 lastName = card.lastName ?? ""
                 email = card.email
@@ -398,14 +402,19 @@ struct CardEditView: View {
                 location = card.location ?? ""
                 timezone = card.timezone ?? ""
                 pronouns = card.pronouns ?? ""
+            } else {
+                name = ""
             }
         }
         .navigationBarBackButtonHidden(true)
     }
 
     private func saveCard() {
+        let cardName = name.trimmingCharacters(in: .whitespaces).isEmpty ? "\(firstName)'s Card" : name
         let savedCard = CardModel(
             id: card?.id ?? UUID().uuidString,
+            name: cardName,
+            nickname: nickname.isEmpty ? nil : nickname,
             firstName: firstName,
             lastName: lastName.isEmpty ? nil : lastName,
             email: email,
