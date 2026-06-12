@@ -50,6 +50,16 @@ struct MainTabView: View {
                 }
             )
         }
+        .onChange(of: navigationManager.navigationPath.count) { _, count in
+            guard count == 0, let person = navigationManager.pendingBriefAfterProfilePop else {
+                return
+            }
+
+            navigationManager.pendingBriefAfterProfilePop = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                navigationManager.openBriefing(person)
+            }
+        }
     }
 }
 

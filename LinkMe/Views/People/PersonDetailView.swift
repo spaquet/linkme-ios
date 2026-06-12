@@ -12,6 +12,10 @@ struct PersonDetailView: View {
     @State private var isShowingEditSheet = false
     @State private var isShowingDeleteConfirmation = false
 
+    private var canReturnToBrief: Bool {
+        navigationManager.briefReturnPersonId == person.id
+    }
+
     init(person: PersonModel, navigationManager: NavigationManager) {
         self._person = State(initialValue: person)
         self.navigationManager = navigationManager
@@ -26,6 +30,9 @@ struct PersonDetailView: View {
                 // Header with back button and actions
                 HStack(spacing: 10) {
                     Button(action: {
+                        if navigationManager.briefReturnPersonId == person.id {
+                            navigationManager.briefReturnPersonId = nil
+                        }
                         if !navigationManager.navigationPath.isEmpty {
                             navigationManager.navigationPath.removeLast()
                         }
@@ -35,7 +42,7 @@ struct PersonDetailView: View {
                             .foregroundColor(LinkMeColors.s500)
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(16)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
                                     .strokeBorder(LinkMeColors.s200, lineWidth: 1)
@@ -51,7 +58,7 @@ struct PersonDetailView: View {
                                 .foregroundColor(LinkMeColors.s500)
                                 .frame(width: 32, height: 32)
                                 .background(LinkMeColors.surface)
-                                .cornerRadius(16)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
                                         .strokeBorder(LinkMeColors.s200, lineWidth: 1)
@@ -67,7 +74,7 @@ struct PersonDetailView: View {
                             .foregroundColor(LinkMeColors.s500)
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
                                     .strokeBorder(LinkMeColors.s200, lineWidth: 1)
@@ -97,7 +104,7 @@ struct PersonDetailView: View {
                             .foregroundColor(LinkMeColors.s500)
                             .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(8)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
                                     .strokeBorder(LinkMeColors.s200, lineWidth: 1)
@@ -165,6 +172,28 @@ struct PersonDetailView: View {
 
                         // Quick actions
                         VStack(spacing: 8) {
+                            if canReturnToBrief {
+                                Button(action: returnToBrief) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "arrow.left")
+                                            .font(.system(size: 14, weight: .semibold))
+
+                                        Text("Back to Brief")
+                                            .font(.system(size: 14, weight: .semibold, design: .default))
+                                    }
+                                    .foregroundColor(LinkMeColors.t700)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 42)
+                                    .background(LinkMeColors.t50)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(LinkMeColors.t200, lineWidth: 1)
+                                    )
+                                    .cornerRadius(12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
                             HStack(spacing: 8) {
                                 QuickActionButton(
                                     icon: "wand.and.stars",
@@ -482,6 +511,16 @@ struct PersonDetailView: View {
 
     private func triggerEnrich() {
         navigationManager.openBriefing(person)
+    }
+
+    private func returnToBrief() {
+        // Supports Brief -> Profile -> Back to Brief without showing this button for
+        // profiles opened from People or Threads.
+        navigationManager.pendingBriefAfterProfilePop = person
+        navigationManager.briefReturnPersonId = nil
+        if !navigationManager.navigationPath.isEmpty {
+            navigationManager.navigationPath.removeLast()
+        }
     }
 
     private func updateNavigationPerson(_ updatedPerson: PersonModel) {

@@ -184,9 +184,12 @@ struct BriefingView: View {
                             }
 
                             Button(action: {
-                                navigationManager.openPersonDetail(person)
+                                dismiss()
+                                DispatchQueue.main.async {
+                                    navigationManager.openPersonDetail(person, returnToBrief: true)
+                                }
                             }) {
-                                Text("View full profile")
+                                Text("View Profile")
                                     .font(.system(size: 16, weight: .semibold, design: .default))
                                     .foregroundColor(LinkMeColors.ink)
                                     .frame(maxWidth: .infinity)

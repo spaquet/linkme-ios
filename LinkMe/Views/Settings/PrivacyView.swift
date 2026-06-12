@@ -8,6 +8,7 @@ struct PrivacyView: View {
     @State private var calendar = true
     @State private var siri = false
     @State private var showResetConfirmation = false
+    @State private var showCardList = false
 
     private var contactsBinding: Binding<Bool> {
         Binding(
@@ -91,6 +92,50 @@ struct PrivacyView: View {
                             RoundedRectangle(cornerRadius: 22)
                                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
                         )
+
+                        // Your cards
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel("Profile")
+
+                            Card(padding: 0) {
+                                VStack(spacing: 0) {
+                                    NavigationLink(destination: CardListView()) {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: "person.card")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.t600)
+                                                .frame(width: 40, height: 40)
+                                                .background(LinkMeColors.t50)
+                                                .cornerRadius(14)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 14)
+                                                        .stroke(LinkMeColors.t200, lineWidth: 1.5)
+                                                )
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("Your cards")
+                                                    .font(.system(size: 16, weight: .semibold, design: .default))
+                                                    .foregroundColor(LinkMeColors.ink)
+
+                                                Text("Manage profile cards and set a default")
+                                                    .font(.system(size: 13.5, design: .default))
+                                                    .foregroundColor(LinkMeColors.s500)
+                                                    .lineHeight(1.4)
+                                            }
+
+                                            Spacer()
+
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.s300)
+                                        }
+                                        .padding(14)
+                                    }
+
+                                    Divider(inset: 63)
+
+                        }
+                        }
 
                         // What needs your permission
                         VStack(alignment: .leading, spacing: 10) {

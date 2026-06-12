@@ -25,8 +25,11 @@ struct AddNoteView: View {
                             .foregroundColor(LinkMeColors.s600)
                             .frame(width: 38, height: 38)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(10)
-                            .border(LinkMeColors.s200, width: 1)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
 
                     Spacer()
@@ -55,7 +58,7 @@ struct AddNoteView: View {
                         )
 
                     case .listening:
-                        ListeningPhaseView(
+                        AddNoteListeningPhaseView(
                             seconds: seconds,
                             transcript: speechManager.recognizedText,
                             isRecording: speechManager.isRecording,
@@ -142,69 +145,19 @@ struct SelectModeView: View {
                         .multilineTextAlignment(.center)
 
                     VStack(spacing: 12) {
-                        Button(action: onVoice) {
-                            HStack(spacing: 14) {
-                                Image(systemName: "mic.fill")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(LinkMeColors.t600)
+                        AddNoteModeCard(
+                            title: "Voice note",
+                            subtitle: "Speak your thoughts. AI extracts key points.",
+                            icon: "mic.fill",
+                            action: onVoice
+                        )
 
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Voice note")
-                                        .font(.system(size: 16, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-
-                                    Text("Speak your thoughts. AI extracts key points.")
-                                        .font(.system(size: 13.5, weight: .regular, design: .default))
-                                        .foregroundColor(LinkMeColors.s500)
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(LinkMeColors.s300)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(LinkMeColors.surface)
-                            .cornerRadius(14)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                            )
-                        }
-
-                        Button(action: onType) {
-                            HStack(spacing: 14) {
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(LinkMeColors.t600)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Type note")
-                                        .font(.system(size: 16, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-
-                                    Text("Add notes and tags when voice isn't an option.")
-                                        .font(.system(size: 13.5, weight: .regular, design: .default))
-                                        .foregroundColor(LinkMeColors.s500)
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(LinkMeColors.s300)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(LinkMeColors.surface)
-                            .cornerRadius(14)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                            )
-                        }
+                        AddNoteModeCard(
+                            title: "Type note",
+                            subtitle: "Add notes and tags when voice isn't an option.",
+                            icon: "pencil",
+                            action: onType
+                        )
                     }
                 }
                 .padding(.horizontal, 20)
@@ -216,8 +169,54 @@ struct SelectModeView: View {
     }
 }
 
+struct AddNoteModeCard: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Card(padding: 14) {
+                HStack(alignment: .center, spacing: 13) {
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(LinkMeColors.t600)
+                        .frame(width: 40, height: 40)
+                        .background(LinkMeColors.t50)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 13)
+                                .strokeBorder(LinkMeColors.t200, lineWidth: 1)
+                        )
+                        .cornerRadius(13)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.system(size: 15.5, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text(subtitle)
+                            .font(.system(size: 13.5, weight: .regular, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(LinkMeColors.s300)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Listening Phase
-struct ListeningPhaseView: View {
+struct AddNoteListeningPhaseView: View {
     let seconds: Int
     let transcript: String
     let isRecording: Bool
@@ -287,9 +286,15 @@ struct ListeningPhaseView: View {
 
 // MARK: - Typing Phase
 struct TypingPhaseView: View {
+    private enum FocusedField {
+        case note
+        case tags
+    }
+
     @Binding var text: String
     @Binding var tagsText: String
     let onSave: () -> Void
+    @FocusState private var focusedField: FocusedField?
 
     var body: some View {
         ScrollView {
@@ -310,10 +315,14 @@ struct TypingPhaseView: View {
                     TextEditor(text: $text)
                         .font(.system(size: 15, weight: .regular, design: .default))
                         .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+                        .focused($focusedField, equals: .note)
                         .padding(12)
                         .background(LinkMeColors.surface)
-                        .border(LinkMeColors.s200, width: 1)
-                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(focusedField == .note ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                        )
                         .frame(height: 120)
                 }
 
@@ -331,12 +340,18 @@ struct TypingPhaseView: View {
                     }
 
                     TextField("Add tags separated by commas", text: $tagsText)
+                        .textFieldStyle(.plain)
                         .font(.system(size: 15, weight: .regular, design: .default))
                         .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .tags)
                         .padding(12)
                         .background(LinkMeColors.surface)
-                        .border(LinkMeColors.s200, width: 1)
-                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(focusedField == .tags ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                        )
                 }
 
                 PrimaryButton("Save note", tone: .teal) {

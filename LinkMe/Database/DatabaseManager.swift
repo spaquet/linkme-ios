@@ -101,6 +101,21 @@ class DatabaseManager {
         ON person_tags(tag_normalized, person_id);
         """
 
+        let peopleCapturedIndex = """
+        CREATE INDEX IF NOT EXISTS idx_people_deleted_captured
+        ON people(deleted_at, captured_at);
+        """
+
+        let peopleNameIndex = """
+        CREATE INDEX IF NOT EXISTS idx_people_deleted_name
+        ON people(deleted_at, name);
+        """
+
+        let peopleLastContactIndex = """
+        CREATE INDEX IF NOT EXISTS idx_people_deleted_last_contact
+        ON people(deleted_at, last_contact);
+        """
+
         let contacts = """
         CREATE TABLE IF NOT EXISTS contacts (
             id TEXT PRIMARY KEY,
@@ -148,7 +163,38 @@ class DatabaseManager {
         );
         """
 
-        for createTableSQL in [users, people, personTags, personTagsIndex, notes, contacts, threads, shares, relationships] {
+        let cards = """
+        CREATE TABLE IF NOT EXISTS cards (
+            id TEXT PRIMARY KEY,
+            first_name TEXT NOT NULL,
+            last_name TEXT,
+            email TEXT NOT NULL,
+            phone TEXT,
+            avatar TEXT,
+            role TEXT NOT NULL,
+            company TEXT NOT NULL,
+            bio TEXT,
+            tagline TEXT,
+            location TEXT,
+            timezone TEXT,
+            pronouns TEXT,
+            social_links TEXT,
+            payment_links TEXT,
+            chat_apps TEXT,
+            is_default BOOLEAN DEFAULT 0,
+            shared_publicly BOOLEAN DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            deleted_at DATETIME
+        );
+        """
+
+        let cardsIndexDefault = """
+        CREATE INDEX IF NOT EXISTS idx_cards_is_default
+        ON cards(is_default, deleted_at);
+        """
+
+        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault] {
             executeSQL(createTableSQL)
         }
 
@@ -320,6 +366,51 @@ class DatabaseManager {
         return people
     }
 
+    func fetchPeople(
+        searchText: String,
+        matchingTags tags: [String] = [],
+        partialTagMatch: Bool = false,
+        sortedBy sortOption: PersonSortOption = .capturedRecent,
+        limit: Int,
+        offset: Int
+    ) -> [PersonModel] {
+        let query = peopleQueryParts(searchText: searchText, matchingTags: tags, partialTagMatch: partialTagMatch)
+        let sql = """
+        SELECT DISTINCT p.id, p.name, p.company, p.role, p.tone, p.captured_at, p.last_contact, p.is_favorite, p.context, p.personal, p.followup, p.tags, p.apple_contact_identifier, p.apple_contact_last_synced_at, p.apple_contact_sync_checksum, p.apple_contact_snapshot_json
+        FROM people p
+        \(query.joinSQL)
+        WHERE \(query.whereSQL)
+        ORDER BY \(orderBySQL(for: sortOption))
+        LIMIT \(max(1, limit)) OFFSET \(max(0, offset))
+        """
+
+        return fetchPeople(sql: sql, bindValues: query.bindValues)
+    }
+
+    func countPeople(searchText: String, matchingTags tags: [String] = [], partialTagMatch: Bool = false) -> Int {
+        let query = peopleQueryParts(searchText: searchText, matchingTags: tags, partialTagMatch: partialTagMatch)
+        let sql = """
+        SELECT COUNT(DISTINCT p.id)
+        FROM people p
+        \(query.joinSQL)
+        WHERE \(query.whereSQL)
+        """
+
+        var count = 0
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            for (index, value) in query.bindValues.enumerated() {
+                bindText(statement, Int32(index + 1), value)
+            }
+
+            if sqlite3_step(statement) == SQLITE_ROW {
+                count = Int(sqlite3_column_int(statement, 0))
+            }
+        }
+        sqlite3_finalize(statement)
+        return count
+    }
+
     func fetchPeople(tagged tag: String) -> [PersonModel] {
         fetchPeople(matchingTags: [tag], partialMatch: false)
     }
@@ -344,6 +435,61 @@ class DatabaseManager {
 
         let bindValues = partialMatch ? normalizedTags.map { "%\($0)%" } : normalizedTags
         return fetchPeople(sql: sql, bindValues: bindValues)
+    }
+
+    private func peopleQueryParts(searchText: String, matchingTags tags: [String], partialTagMatch: Bool) -> (joinSQL: String, whereSQL: String, bindValues: [String]) {
+        let normalizedTags = tags.map(normalizeTag).filter { !$0.isEmpty }
+        var joins: [String] = []
+        var predicates = ["p.deleted_at IS NULL"]
+        var bindValues: [String] = []
+
+        if !normalizedTags.isEmpty {
+            joins.append("INNER JOIN person_tags pt ON pt.person_id = p.id")
+            if partialTagMatch {
+                predicates.append("(\(normalizedTags.map { _ in "pt.tag_normalized LIKE ?" }.joined(separator: " OR ")))")
+                bindValues.append(contentsOf: normalizedTags.map { "%\($0)%" })
+            } else {
+                let placeholders = Array(repeating: "?", count: normalizedTags.count).joined(separator: ", ")
+                predicates.append("pt.tag_normalized IN (\(placeholders))")
+                bindValues.append(contentsOf: normalizedTags)
+            }
+        }
+
+        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedSearch.isEmpty {
+            let searchValue = "%\(trimmedSearch.lowercased())%"
+            predicates.append("""
+            (
+                lower(p.name) LIKE ?
+                OR lower(coalesce(p.company, '')) LIKE ?
+                OR lower(coalesce(p.role, '')) LIKE ?
+                OR lower(coalesce(p.tags, '')) LIKE ?
+                OR lower(coalesce(p.apple_contact_snapshot_json, '')) LIKE ?
+            )
+            """)
+            bindValues.append(contentsOf: Array(repeating: searchValue, count: 5))
+        }
+
+        return (
+            joinSQL: joins.joined(separator: "\n"),
+            whereSQL: predicates.joined(separator: "\n  AND "),
+            bindValues: bindValues
+        )
+    }
+
+    private func orderBySQL(for sortOption: PersonSortOption) -> String {
+        switch sortOption {
+        case .capturedRecent:
+            return "p.captured_at DESC, lower(p.name) ASC"
+        case .capturedOldest:
+            return "p.captured_at ASC, lower(p.name) ASC"
+        case .nameAZ:
+            return "lower(substr(p.name, 1, instr(p.name || ' ', ' ') - 1)) ASC, lower(p.name) ASC"
+        case .nameZA:
+            return "lower(substr(p.name, 1, instr(p.name || ' ', ' ') - 1)) DESC, lower(p.name) DESC"
+        case .lastContactRecent:
+            return "coalesce(p.last_contact, 0) DESC, lower(p.name) ASC"
+        }
     }
 
     func insertNote(_ note: NoteModel) {
@@ -590,6 +736,180 @@ class DatabaseManager {
         }
 
         return extractedJson
+    }
+
+    // MARK: - Card Operations
+
+    func insertCard(_ card: CardModel) {
+        let sql = """
+        INSERT INTO cards (id, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, card.id)
+            bindText(statement, 2, card.firstName)
+            bindText(statement, 3, card.lastName)
+            bindText(statement, 4, card.email)
+            bindText(statement, 5, card.phone)
+            bindText(statement, 6, card.avatar)
+            bindText(statement, 7, card.role)
+            bindText(statement, 8, card.company)
+            bindText(statement, 9, card.bio)
+            bindText(statement, 10, card.tagline)
+            bindText(statement, 11, card.location)
+            bindText(statement, 12, card.timezone)
+            bindText(statement, 13, card.pronouns)
+            bindText(statement, 14, encodeNestedJSON(card.socialLinks))
+            bindText(statement, 15, encodeNestedJSON(card.paymentLinks))
+            bindText(statement, 16, encodeNestedJSON(card.chatApps))
+            sqlite3_bind_int(statement, 17, card.isDefault ? 1 : 0)
+            sqlite3_bind_int(statement, 18, card.sharedPublicly ? 1 : 0)
+            sqlite3_bind_int64(statement, 19, Int64(card.createdAt.timeIntervalSince1970))
+            sqlite3_bind_int64(statement, 20, Int64(card.updatedAt.timeIntervalSince1970))
+
+            if sqlite3_step(statement) == SQLITE_DONE {
+                print("✓ Card inserted: \(card.firstName)")
+            }
+        }
+        sqlite3_finalize(statement)
+    }
+
+    func updateCard(_ card: CardModel) {
+        let sql = """
+        UPDATE cards SET
+            first_name = ?, last_name = ?, email = ?, phone = ?, avatar = ?,
+            role = ?, company = ?, bio = ?, tagline = ?, location = ?,
+            timezone = ?, pronouns = ?, social_links = ?, payment_links = ?,
+            chat_apps = ?, is_default = ?, shared_publicly = ?, updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL
+        """
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, card.firstName)
+            bindText(statement, 2, card.lastName)
+            bindText(statement, 3, card.email)
+            bindText(statement, 4, card.phone)
+            bindText(statement, 5, card.avatar)
+            bindText(statement, 6, card.role)
+            bindText(statement, 7, card.company)
+            bindText(statement, 8, card.bio)
+            bindText(statement, 9, card.tagline)
+            bindText(statement, 10, card.location)
+            bindText(statement, 11, card.timezone)
+            bindText(statement, 12, card.pronouns)
+            bindText(statement, 13, encodeNestedJSON(card.socialLinks))
+            bindText(statement, 14, encodeNestedJSON(card.paymentLinks))
+            bindText(statement, 15, encodeNestedJSON(card.chatApps))
+            sqlite3_bind_int(statement, 16, card.isDefault ? 1 : 0)
+            sqlite3_bind_int(statement, 17, card.sharedPublicly ? 1 : 0)
+            sqlite3_bind_int64(statement, 18, Int64(Date().timeIntervalSince1970))
+            bindText(statement, 19, card.id)
+
+            if sqlite3_step(statement) == SQLITE_DONE {
+                print("✓ Card updated: \(card.firstName)")
+            }
+        }
+        sqlite3_finalize(statement)
+    }
+
+    func deleteCard(cardId: String) {
+        let sql = "UPDATE cards SET deleted_at = ? WHERE id = ?"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, Int64(Date().timeIntervalSince1970))
+            bindText(statement, 2, cardId)
+            sqlite3_step(statement)
+        }
+        sqlite3_finalize(statement)
+    }
+
+    func fetchCards() -> [CardModel] {
+        let sql = """
+        SELECT id, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at
+        FROM cards
+        WHERE deleted_at IS NULL
+        ORDER BY is_default DESC, created_at DESC
+        """
+
+        var cards: [CardModel] = []
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                guard let card = cardFromRow(statement) else { continue }
+                cards.append(card)
+            }
+        }
+        sqlite3_finalize(statement)
+        return cards
+    }
+
+    func setDefaultCard(cardId: String) {
+        let clearSQL = "UPDATE cards SET is_default = 0 WHERE deleted_at IS NULL"
+        executeSQL(clearSQL)
+
+        let setSQL = "UPDATE cards SET is_default = 1 WHERE id = ? AND deleted_at IS NULL"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, setSQL, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, cardId)
+            sqlite3_step(statement)
+        }
+        sqlite3_finalize(statement)
+    }
+
+    private func cardFromRow(_ statement: OpaquePointer?) -> CardModel? {
+        guard let id = columnText(statement, 0),
+              let firstName = columnText(statement, 1),
+              let email = columnText(statement, 3),
+              let role = columnText(statement, 6),
+              let company = columnText(statement, 7) else {
+            return nil
+        }
+
+        var card = CardModel(
+            id: id,
+            firstName: firstName,
+            lastName: columnText(statement, 2),
+            email: email,
+            phone: columnText(statement, 4),
+            avatar: columnText(statement, 5),
+            role: role,
+            company: company,
+            bio: columnText(statement, 8),
+            tagline: columnText(statement, 9),
+            location: columnText(statement, 10),
+            timezone: columnText(statement, 11),
+            pronouns: columnText(statement, 12),
+            socialLinks: decodeNestedJSON(columnText(statement, 13)) ?? [],
+            paymentLinks: decodeNestedJSON(columnText(statement, 14)) ?? [],
+            chatApps: decodeNestedJSON(columnText(statement, 15)) ?? [],
+            isDefault: sqlite3_column_int(statement, 16) == 1,
+            sharedPublicly: sqlite3_column_int(statement, 17) == 1
+        )
+
+        card.createdAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 18)))
+        card.updatedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 19)))
+
+        return card
+    }
+
+    private func encodeNestedJSON<T: Encodable>(_ value: T) -> String? {
+        guard let data = try? JSONEncoder().encode(value),
+              let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return json
+    }
+
+    private func decodeNestedJSON<T: Decodable>(_ json: String?) -> T? {
+        guard let json,
+              let data = json.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 
     deinit {
