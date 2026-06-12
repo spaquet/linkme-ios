@@ -32,25 +32,6 @@ struct ThreadsView: View {
                         VStack(spacing: 11) {
                             HStack(spacing: 7) {
                                 SectionLabel("Proactive nudges")
-
-                                HStack(spacing: 5) {
-                                    Image(systemName: "sparkles")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(LinkMeColors.t700)
-
-                                    Text("On-device AI")
-                                        .font(.system(size: 11, weight: .semibold, design: .default))
-                                        .foregroundColor(LinkMeColors.t700)
-                                }
-                                .frame(height: 22)
-                                .padding(.horizontal, 8)
-                                .background(LinkMeColors.t50)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 999)
-                                        .strokeBorder(LinkMeColors.t200, lineWidth: 1)
-                                )
-                                .cornerRadius(999)
-
                                 Spacer()
                             }
 
