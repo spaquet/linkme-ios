@@ -99,10 +99,33 @@ LinkMe is a relationship operating system for high-stakes operators (founders, i
    - Consent flows (explicit, granular)
    - "Stayed on this device" indicator
 
+## Data Storage Strategy
+
+⚠️ **CRITICAL**: Cards MUST be stored exclusively in SQLite. Never store CardModel in UserDefaults.
+
+**Data partitioning:**
+- **UserModel** (lightweight, UserDefaults): `id`, `firstName`, `lastName` only. Identity layer.
+- **CardModel** (rich, SQLite only): `name`, `nickname`, `firstName`, `lastName`, `email`, `phone`, `avatar`, `role`, `company`, `bio`, `tagline`, `location`, `timezone`, `pronouns`, `socialLinks`, `paymentLinks`, `chatApps`. Profile layer.
+
+**Why this matters:**
+- Cards are the single source of truth — stored only in SQLite via `DatabaseManager`
+- `UserDefaults` never contains card data — use `UserModelForStorage` for encoding/decoding to enforce this
+- Multiple cards per user are managed entirely through the database
+- Prevents sync issues where cards in UserDefaults diverge from SQLite
+- Enables future cloud sync without UserDefaults pollution
+
+**Implementation checklist:**
+- ✅ OnboardingView saves cards directly to SQLite, not to `appState.currentUser.cards`
+- ✅ CardEditView persists changes via `DatabaseManager`, not UserDefaults
+- ✅ CardListView reads exclusively from `DatabaseManager.fetchCards()`
+- ✅ AppState uses `UserModelForStorage` to prevent card serialization
+- ✅ Never populate `currentUser.cards` from UserDefaults — it's for CardListView seeding only
+
 ## Data Model (SQLite)
 
 Core entities:
-- **User**: name, first, role, company, email, tagline, avatar, created_at
+- **User**: id, first_name, last_name (lightweight identity)
+- **Card**: id, name, nickname, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at, deleted_at
 - **Person**: id, name, company, role, tone, captured_at, last_contact, favorite, deleted_at
 - **Note**: id, person_id, text, transcription, extracted_json, created_at, is_followup
 - **Contact**: id, person_id, type (meeting/call/text), timestamp, location, attendees
@@ -136,6 +159,7 @@ Core entities:
 
 ## Notes
 
+- **🚨 Cards in SQLite only**: Cards MUST be persisted exclusively to SQLite via `DatabaseManager`. Never store CardModel in UserDefaults. See "Data Storage Strategy" above.
 - **Privacy is first-class**: Every view must have visible on-device/cloud indicator. Consent flows block cloud data.
 - **Recall is the hero**: Lead UX with briefing moment, not database browser.
 - **Near-zero friction capture**: 10-second voice note + mic button is the core habit. No delays.
