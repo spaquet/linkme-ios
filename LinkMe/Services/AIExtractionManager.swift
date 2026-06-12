@@ -81,9 +81,9 @@ class AIExtractionManager {
     Prefer a full first and last name when present. If only one name is present, return that one name.
     For unknown fields, return an empty string or an empty tags array.
     Tags should be concise relationship labels like Founder, Investor, Exec, Healthtech, AI, Seed, Follow-up.
-    Follow-up should capture promised next actions, intros, sends, reminders, or open loops.
-    Personal detail should capture human details such as family, interests, location, preferences, or memorable facts.
-    Live context should summarize why this person matters right now.
+    Follow-up should capture promised next actions, future introductions, sends, reminders, or open loops. For "looking forward to introduce me to their CMO", create a follow-up about an intro to the CMO.
+    Personal detail should be the smallest useful human detail fragment, such as "3 kids", not the full transcript.
+    Live context should summarize timely business context only, such as fundraising, hiring, launching, or a current project. A company name alone is not live context. Do not put follow-up actions or personal details in live context. If there is no real live context, return an empty string.
     """
 }
 
@@ -148,7 +148,7 @@ private extension AIExtractionManager {
             "at", "from", "with", "who", "that", "and", "about", "around",
             "for", "to", "on", "in", "during", "because", "needs", "need",
             "is", "was", "works", "building", "founder", "ceo", "cto", "cfo",
-            "partner", "investor", "director", "manager", "vp", "head"
+            "coo", "partner", "investor", "director", "manager", "vp", "head"
         ]
         let leadingWords: Set<String> = [
             "i", "we", "just", "today", "tonight", "yesterday", "finally",
@@ -165,16 +165,16 @@ private extension AIExtractionManager {
         for index in startIndex..<words.count {
             let lower = lowerWords[index]
             if stopWords.contains(lower) { break }
-            if isLikelyNameToken(words[index]) || isNameParticle(lower) {
-                nameTokens.append(words[index])
+            if isLikelyNameToken(words[index]) || isLikelyLowercaseNameToken(lower) || isNameParticle(lower) {
+                nameTokens.append(normalizedNameToken(words[index]))
                 if nameTokens.count == 4 { break }
             } else if !nameTokens.isEmpty {
                 break
             }
         }
 
-        if nameTokens.isEmpty, words.count == 2, words.allSatisfy(isLikelyNameToken) {
-            nameTokens = words
+        if nameTokens.isEmpty, words.count == 2, words.allSatisfy({ isLikelyNameToken($0) || isLikelyLowercaseNameToken($0.lowercased()) }) {
+            nameTokens = words.map(normalizedNameToken)
         }
 
         return nameTokens.isEmpty ? nil : nameTokens.joined(separator: " ")
@@ -190,14 +190,15 @@ private extension AIExtractionManager {
         let stopWords: Set<String> = [
             "as", "who", "and", "but", "because", "needs", "need", "talked",
             "spoke", "met", "about", "on", "for", "follow", "send", "intro",
-            "connect"
+            "connect", "looking", "look", "forward"
         ]
         var companyTokens: [String] = []
         for index in (markerIndex + 1)..<words.count {
             let lower = lowerWords[index]
+            if lower.rangeOfCharacter(from: .decimalDigits) != nil { break }
             if stopWords.contains(lower) { break }
-            if isLikelyCompanyToken(words[index]) || lower == "and" {
-                companyTokens.append(words[index])
+            if isLikelyCompanyToken(words[index]) || isLikelyLowercaseCompanyToken(lower) || lower == "and" {
+                companyTokens.append(normalizedCompanyToken(words[index]))
                 if companyTokens.count == 5 { break }
             } else if !companyTokens.isEmpty {
                 break
@@ -218,13 +219,13 @@ private extension AIExtractionManager {
             return nil
         }
 
-        var roleTokens = [words[roleIndex]]
+        var roleTokens = [normalizedRoleToken(words[roleIndex])]
         if roleIndex > 0, ["co", "cofounder", "co-founder"].contains(lowerWords[roleIndex - 1]) {
-            roleTokens.insert(words[roleIndex - 1], at: 0)
+            roleTokens.insert(normalizedRoleToken(words[roleIndex - 1]), at: 0)
         }
         if roleIndex < words.count - 2, lowerWords[roleIndex + 1] == "and", roleTerms.contains(lowerWords[roleIndex + 2]) {
             roleTokens.append(words[roleIndex + 1])
-            roleTokens.append(words[roleIndex + 2])
+            roleTokens.append(normalizedRoleToken(words[roleIndex + 2]))
         }
 
         return roleTokens.joined(separator: " ")
@@ -234,7 +235,7 @@ private extension AIExtractionManager {
         let lower = text.lowercased()
         let contextMarkers = [
             "building", "launching", "raising", "fundraising", "hiring",
-            "closing", "looking for", "working on", "needs", "interested in",
+            "closing", "working on", "needs", "interested in",
             "talked about", "discussed"
         ]
 
@@ -248,6 +249,10 @@ private extension AIExtractionManager {
 
     static func extractFollowUp(from text: String) -> String? {
         let lower = text.lowercased()
+        if let introTarget = extractIntroTarget(from: text) {
+            return "Intro to \(introTarget)"
+        }
+
         let followUpMarkers = [
             "follow up", "send", "intro", "introduce", "connect", "email",
             "remind", "share", "promised", "next week", "tomorrow"
@@ -257,11 +262,18 @@ private extension AIExtractionManager {
             return nil
         }
 
-        return text
+        return focusedFragment(from: text, startingAtAny: followUpMarkers) ?? text
     }
 
     static func extractPersonalDetail(from text: String) -> String? {
         let lower = text.lowercased()
+        if let childrenDetail = firstRegexMatch(
+            in: text,
+            pattern: #"(?i)\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(kids?|children|sons?|daughters?)\b"#
+        ) {
+            return childrenDetail.lowercased()
+        }
+
         let personalMarkers = [
             "lives in", "based in", "likes", "loves", "family", "kids",
             "daughter", "son", "wife", "husband", "partner", "hobby",
@@ -272,7 +284,7 @@ private extension AIExtractionManager {
             return nil
         }
 
-        return text
+        return focusedFragment(from: text, startingAtAny: personalMarkers) ?? text
     }
 
     static func extractTags(from text: String, role: String?) -> [String] {
@@ -298,6 +310,20 @@ private extension AIExtractionManager {
         return first.isUppercase && token.dropFirst().allSatisfy { $0.isLetter || $0 == "-" || $0 == "'" }
     }
 
+    static func isLikelyLowercaseNameToken(_ token: String) -> Bool {
+        guard token.count > 1 else { return false }
+        let blocked: Set<String> = [
+            "met", "meet", "at", "from", "with", "who", "the", "their",
+            "looking", "forward", "introduce", "intro", "kids", "children"
+        ]
+        return !blocked.contains(token) && token.allSatisfy { $0.isLetter || $0 == "-" || $0 == "'" }
+    }
+
+    static func normalizedNameToken(_ token: String) -> String {
+        guard token == token.lowercased() else { return token }
+        return token.prefix(1).uppercased() + token.dropFirst()
+    }
+
     static func isNameParticle(_ token: String) -> Bool {
         ["da", "de", "del", "der", "di", "la", "le", "van", "von"].contains(token)
     }
@@ -306,6 +332,82 @@ private extension AIExtractionManager {
         guard let first = token.first else { return false }
         let corporateSuffixes = ["inc", "llc", "labs", "ventures", "capital", "studio", "systems", "ai"]
         return first.isUppercase || corporateSuffixes.contains(token.lowercased())
+    }
+
+    static func isLikelyLowercaseCompanyToken(_ token: String) -> Bool {
+        guard token.count > 1 else { return false }
+        let blocked: Set<String> = [
+            "met", "meet", "vp", "ceo", "cto", "cfo", "coo", "partner",
+            "founder", "kids", "children", "looking", "forward", "introduce"
+        ]
+        return !blocked.contains(token) && token.allSatisfy { $0.isLetter || $0 == "-" || $0 == "'" }
+    }
+
+    static func normalizedCompanyToken(_ token: String) -> String {
+        guard token == token.lowercased() else { return token }
+        return token.prefix(1).uppercased() + token.dropFirst()
+    }
+
+    static func normalizedRoleToken(_ token: String) -> String {
+        switch token.lowercased() {
+        case "ceo", "cto", "cfo", "coo", "vp":
+            return token.uppercased()
+        default:
+            return token
+        }
+    }
+
+    static func extractIntroTarget(from text: String) -> String? {
+        let patterns = [
+            #"(?i)\bintro(?:duce)?(?:\s+me)?\s+to\s+(?:his|her|their|the)?\s*([A-Za-z][A-Za-z &-]{1,40})"#,
+            #"(?i)\bconnect(?:\s+me)?\s+(?:with|to)\s+(?:his|her|their|the)?\s*([A-Za-z][A-Za-z &-]{1,40})"#
+        ]
+
+        for pattern in patterns {
+            if let target = firstRegexCapture(in: text, pattern: pattern, captureIndex: 1) {
+                return target
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'.,;:!?"))
+                    .uppercasedIfShortAcronym()
+            }
+        }
+
+        return nil
+    }
+
+    static func focusedFragment(from text: String, startingAtAny markers: [String]) -> String? {
+        let lower = text.lowercased()
+        guard let range = markers.compactMap({ lower.range(of: $0) }).min(by: { $0.lowerBound < $1.lowerBound }) else {
+            return nil
+        }
+
+        return String(text[range.lowerBound...])
+    }
+
+    static func firstRegexMatch(in text: String, pattern: String) -> String? {
+        firstRegexCapture(in: text, pattern: pattern, captureIndex: 0)
+    }
+
+    static func firstRegexCapture(in text: String, pattern: String, captureIndex: Int) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range),
+              captureIndex < match.numberOfRanges,
+              let captureRange = Range(match.range(at: captureIndex), in: text) else {
+            return nil
+        }
+
+        return String(text[captureRange])
+    }
+}
+
+private extension String {
+    func uppercasedIfShortAcronym() -> String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count <= 4 {
+            return trimmed.uppercased()
+        }
+        return trimmed
     }
 }
 

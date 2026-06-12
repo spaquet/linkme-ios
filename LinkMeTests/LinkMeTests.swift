@@ -38,4 +38,18 @@ struct LinkMeTests {
         #expect(data.followUp != nil)
     }
 
+    @Test func extractionSeparatesIntroFollowUpFromPersonalDetail() async throws {
+        let data = AIExtractionManager.fallbackExtract(
+            "met greg johnson vp at starbucks 3 kids looking forward to introduce me to their CMO"
+        )
+
+        #expect(data.name == "Greg Johnson")
+        #expect(data.role == "VP")
+        #expect(data.company == "Starbucks")
+        #expect(data.liveContext == nil)
+        #expect(data.followUp == "Intro to CMO")
+        #expect(data.personalDetail == "3 kids")
+        #expect(data.tags.contains("Follow-up"))
+    }
+
 }
