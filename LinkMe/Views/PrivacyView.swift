@@ -2,12 +2,19 @@ import SwiftUI
 
 struct PrivacyView: View {
     let appState: AppState
+    @StateObject private var contactSync = ContactSyncManager.shared
     @State private var cloudEnrichment = false
     @State private var lifeSignals = true
     @State private var calendar = true
-    @State private var contacts = true
     @State private var siri = true
     @State private var showResetConfirmation = false
+
+    private var contactsBinding: Binding<Bool> {
+        Binding(
+            get: { contactSync.isEnabled },
+            set: { contactSync.setEnabled($0) }
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -151,10 +158,16 @@ struct PrivacyView: View {
                                     PrivacyRow(
                                         icon: "person.2",
                                         title: "Contacts",
-                                        detail: "Match captures to people you already know.",
-                                        isToggled: $contacts,
+                                        detail: "Bidirectional sync with your iPhone contacts.",
+                                        isToggled: contactsBinding,
                                         isLocked: false
                                     )
+
+                                    if contactSync.isEnabled {
+                                        ContactSyncStatusView(state: contactSync.state, stats: contactSync.stats)
+                                            .padding(.horizontal, 14)
+                                            .padding(.bottom, 14)
+                                    }
 
                                     Divider(inset: 63)
 
@@ -209,6 +222,82 @@ struct PrivacyView: View {
         } message: {
             Text("This will clear all data and return you to onboarding.")
         }
+        .onAppear {
+            contactSync.refreshIfEnabled()
+        }
+    }
+}
+
+struct ContactSyncStatusView: View {
+    let state: ContactSyncState
+    let stats: ContactSyncStats
+
+    private var statusColor: Color {
+        switch state {
+        case .synced: LinkMeColors.t600
+        case .syncing: LinkMeColors.s600
+        case .failed, .denied: Color.red.opacity(0.75)
+        default: LinkMeColors.s500
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                if state == .syncing {
+                    ProgressView()
+                        .scaleEffect(0.72)
+                } else {
+                    Image(systemName: state == .synced ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(statusColor)
+                }
+
+                Text(state.label)
+                    .font(.system(size: 12.5, weight: .semibold, design: .default))
+                    .foregroundColor(statusColor)
+
+                Spacer()
+
+                if let lastSyncedAt = stats.lastSyncedAt {
+                    Text(lastSyncedAt, style: .time)
+                        .font(.system(size: 11.5, design: .default))
+                        .foregroundColor(LinkMeColors.s400)
+                }
+            }
+
+            HStack(spacing: 10) {
+                SyncMetric(value: "\(stats.total)", label: "fetched")
+                SyncMetric(value: "\(stats.stored)", label: "in People")
+                SyncMetric(value: "\(stats.imported)", label: "new")
+                SyncMetric(value: "\(stats.updated)", label: "updated")
+            }
+        }
+        .padding(12)
+        .background(LinkMeColors.t50.opacity(0.55))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(LinkMeColors.t100, lineWidth: 1)
+        )
+    }
+}
+
+struct SyncMetric: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(.system(size: 15, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.ink)
+
+            Text(label)
+                .font(.system(size: 10.5, design: .default))
+                .foregroundColor(LinkMeColors.s500)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

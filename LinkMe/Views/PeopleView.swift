@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PeopleView: View {
     let navigationManager: NavigationManager
+    @Binding var selectedTab: Int
+    @StateObject private var contactSync = ContactSyncManager.shared
     @State private var people: [PersonModel] = []
     @State private var searchText = ""
     @State private var selectedFilter = "All"
@@ -57,6 +59,38 @@ struct PeopleView: View {
         return result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
+    private func contactDetail(for person: PersonModel) -> String {
+        let work = [person.role, person.company]
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: " · ")
+
+        if !work.isEmpty {
+            return work
+        }
+
+        if let snapshotValue = firstSnapshotValue(person.appleContactSnapshotJson, collection: "phoneNumbers") {
+            return snapshotValue
+        }
+
+        if let snapshotValue = firstSnapshotValue(person.appleContactSnapshotJson, collection: "emailAddresses") {
+            return snapshotValue
+        }
+
+        return person.appleContactIdentifier == nil ? "App contact" : "iPhone contact"
+    }
+
+    private func firstSnapshotValue(_ json: String?, collection: String) -> String? {
+        guard let json,
+              let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let values = object[collection] as? [[String: Any]] else {
+            return nil
+        }
+
+        return values.compactMap { $0["value"] as? String }
+            .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
     var body: some View {
         ZStack {
             LinkMeColors.canvas
@@ -70,7 +104,7 @@ struct PeopleView: View {
                         .tracking(-0.02)
                         .foregroundColor(LinkMeColors.ink)
 
-                    Text("\(people.count) relationships · all on this device")
+                    Text("\(people.count) contacts · all on this device")
                         .font(.system(size: 13.5, weight: .regular, design: .default))
                         .foregroundColor(LinkMeColors.s500)
                 }
@@ -116,21 +150,24 @@ struct PeopleView: View {
                 .padding(.vertical, 12)
 
                 // List
-                if filteredPeople.isEmpty {
+                if people.isEmpty {
+                    emptyState
+                } else if filteredPeople.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "person.crop.circle")
-                            .font(.system(size: 40, weight: .light))
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 36, weight: .light))
                             .foregroundColor(LinkMeColors.s300)
 
-                        Text("No people yet")
+                        Text("No matches")
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .foregroundColor(LinkMeColors.s500)
 
-                        Text("Start capturing notes after meetings")
+                        Text("Try a different search or filter")
                             .font(.system(size: 13, design: .default))
                             .foregroundColor(LinkMeColors.s400)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.bottom, LinkMeLayout.tabBarHeight)
                 } else {
                     ScrollView {
                         VStack(spacing: 1) {
@@ -146,7 +183,7 @@ struct PeopleView: View {
                                                 .font(.system(size: 15, weight: .semibold, design: .default))
                                                 .foregroundColor(LinkMeColors.ink)
 
-                                            Text("\(person.role) · \(person.company)")
+                                            Text(contactDetail(for: person))
                                                 .font(.system(size: 13, design: .default))
                                                 .foregroundColor(LinkMeColors.s500)
                                         }
@@ -180,13 +217,93 @@ struct PeopleView: View {
             }
         }
         .onAppear {
-            // Load mock data on first launch
-            let dbPeople = DatabaseManager.shared.fetchPeople()
-            people = dbPeople.isEmpty ? MockDataManager.mockPeople : dbPeople
+            loadPeople()
+            Task {
+                if contactSync.isEnabled {
+                    await contactSync.sync()
+                    loadPeople()
+                }
+            }
         }
+        .onChange(of: contactSync.state) { _, state in
+            if state == .synced {
+                loadPeople()
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: contactSync.isEnabled ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.plus")
+                .font(.system(size: 42, weight: .light))
+                .foregroundColor(LinkMeColors.s300)
+
+            VStack(spacing: 5) {
+                Text(contactSync.isEnabled ? emptyTitleForEnabledSync : "Sync your contacts")
+                    .font(.system(size: 16, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.ink)
+
+                Text(contactSync.isEnabled ? emptyDetailForEnabledSync : "Turn on Contacts in Privacy to populate People from your iPhone contacts.")
+                    .font(.system(size: 13, design: .default))
+                    .foregroundColor(LinkMeColors.s500)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(.horizontal, 34)
+            }
+
+            if !contactSync.isEnabled {
+                Button(action: { selectedTab = 4 }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.shield")
+                            .font(.system(size: 13, weight: .semibold))
+
+                        Text("Open Privacy")
+                            .font(.system(size: 13.5, weight: .semibold, design: .default))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .frame(height: 38)
+                    .background(LinkMeColors.ink)
+                    .cornerRadius(12)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.bottom, LinkMeLayout.tabBarHeight)
+    }
+
+    private var emptyTitleForEnabledSync: String {
+        switch contactSync.state {
+        case .syncing:
+            return "Syncing contacts"
+        case .denied:
+            return "Contacts access denied"
+        case .failed:
+            return "Contacts sync failed"
+        default:
+            return "No contacts found"
+        }
+    }
+
+    private var emptyDetailForEnabledSync: String {
+        switch contactSync.state {
+        case .syncing:
+            return "Your iPhone contacts are being added to People."
+        case .denied:
+            return "Allow Contacts access in Settings, then return to Privacy and sync again."
+        case .failed(let message):
+            return message
+        default:
+            return "People will appear here after Contacts sync imports them."
+        }
+    }
+
+    private func loadPeople() {
+        people = DatabaseManager.shared.fetchPeople()
     }
 }
 
 #Preview {
-    PeopleView(navigationManager: NavigationManager())
+    PeopleView(navigationManager: NavigationManager(), selectedTab: .constant(1))
 }

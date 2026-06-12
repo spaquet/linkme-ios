@@ -18,7 +18,7 @@ struct MainTabView: View {
                     TodayView(navigationManager: navigationManager, appState: appState, selectedTab: $selectedTab)
                         .tag(0)
 
-                    PeopleView(navigationManager: navigationManager)
+                    PeopleView(navigationManager: navigationManager, selectedTab: $selectedTab)
                         .tag(1)
 
                     ThreadsView(navigationManager: navigationManager)

@@ -21,6 +21,10 @@ struct PersonModel: Identifiable, Hashable {
     var location: String = ""
     var met: String = "Met once"
     var followup: String = ""
+    var appleContactIdentifier: String?
+    var appleContactLastSyncedAt: Date?
+    var appleContactSyncChecksum: String?
+    var appleContactSnapshotJson: String?
 
     init(id: String = UUID().uuidString, name: String, company: String, role: String) {
         self.id = id
