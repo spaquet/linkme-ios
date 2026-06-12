@@ -7,6 +7,7 @@ struct PeopleView: View {
     @State private var people: [PersonModel] = []
     @State private var searchText = ""
     @State private var selectedFilter = "All"
+    @State private var selectedSort = PersonSortOption.capturedRecent
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
 
@@ -53,10 +54,12 @@ struct PeopleView: View {
         }
 
         // Filter by name search
-        if searchText.isEmpty {
-            return result
+        if !searchText.isEmpty {
+            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
-        return result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+
+        // Sort
+        return PersonSortManager.sort(result, by: selectedSort)
     }
 
     private func contactDetail(for person: PersonModel) -> String {
@@ -98,15 +101,40 @@ struct PeopleView: View {
 
             VStack(spacing: 0) {
                 // TopBar
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("People")
-                        .font(.system(size: 28, weight: .semibold, design: .default))
-                        .tracking(-0.02)
-                        .foregroundColor(LinkMeColors.ink)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("People")
+                            .font(.system(size: 28, weight: .semibold, design: .default))
+                            .tracking(-0.02)
+                            .foregroundColor(LinkMeColors.ink)
 
-                    Text("\(people.count) contacts · all on this device")
-                        .font(.system(size: 13.5, weight: .regular, design: .default))
-                        .foregroundColor(LinkMeColors.s500)
+                        Text("\(people.count) contacts · all on this device")
+                            .font(.system(size: 13.5, weight: .regular, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+                    }
+
+                    Spacer()
+
+                    Menu {
+                        ForEach(PersonSortOption.allCases, id: \.id) { option in
+                            Button(action: { selectedSort = option }) {
+                                HStack {
+                                    Text(option.rawValue)
+                                    if selectedSort == option {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s600)
+                            .frame(width: 40, height: 40)
+                            .background(LinkMeColors.surface)
+                            .cornerRadius(12)
+                            .border(LinkMeColors.s200, width: 1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
