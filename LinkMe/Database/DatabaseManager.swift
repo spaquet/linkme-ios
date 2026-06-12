@@ -73,6 +73,16 @@ class DatabaseManager {
         );
         """
 
+        let personTags = """
+        CREATE TABLE IF NOT EXISTS person_tags (
+            person_id TEXT NOT NULL,
+            tag TEXT NOT NULL,
+            tag_normalized TEXT NOT NULL,
+            PRIMARY KEY (person_id, tag_normalized),
+            FOREIGN KEY (person_id) REFERENCES people(id)
+        );
+        """
+
         let notes = """
         CREATE TABLE IF NOT EXISTS notes (
             id TEXT PRIMARY KEY,
@@ -84,6 +94,11 @@ class DatabaseManager {
             is_followup BOOLEAN DEFAULT 0,
             FOREIGN KEY (person_id) REFERENCES people(id)
         );
+        """
+
+        let personTagsIndex = """
+        CREATE INDEX IF NOT EXISTS idx_person_tags_tag_normalized
+        ON person_tags(tag_normalized, person_id);
         """
 
         let contacts = """
@@ -133,11 +148,12 @@ class DatabaseManager {
         );
         """
 
-        for createTableSQL in [users, people, notes, contacts, threads, shares, relationships] {
+        for createTableSQL in [users, people, personTags, personTagsIndex, notes, contacts, threads, shares, relationships] {
             executeSQL(createTableSQL)
         }
 
         migratePeopleSchema()
+        backfillPersonTags()
     }
 
     func executeSQL(_ sql: String) {
@@ -175,6 +191,7 @@ class DatabaseManager {
             bindText(statement, 15, person.appleContactSnapshotJson)
 
             if sqlite3_step(statement) == SQLITE_DONE {
+                replaceTags(for: person.id, tags: person.tags)
                 print("✓ Person inserted: \(person.name)")
             }
         }
@@ -219,7 +236,9 @@ class DatabaseManager {
             bindDate(statement, 14, person.appleContactLastSyncedAt)
             bindText(statement, 15, person.appleContactSyncChecksum)
             bindText(statement, 16, person.appleContactSnapshotJson)
-            sqlite3_step(statement)
+            if sqlite3_step(statement) == SQLITE_DONE {
+                replaceTags(for: person.id, tags: person.tags)
+            }
         }
         sqlite3_finalize(statement)
     }
@@ -301,6 +320,32 @@ class DatabaseManager {
         return people
     }
 
+    func fetchPeople(tagged tag: String) -> [PersonModel] {
+        fetchPeople(matchingTags: [tag], partialMatch: false)
+    }
+
+    func fetchPeople(matchingTags tags: [String], partialMatch: Bool = false) -> [PersonModel] {
+        let normalizedTags = tags.map(normalizeTag).filter { !$0.isEmpty }
+        guard !normalizedTags.isEmpty else { return [] }
+
+        let placeholders = Array(repeating: "?", count: normalizedTags.count).joined(separator: ", ")
+        let predicate = partialMatch
+            ? normalizedTags.map { _ in "pt.tag_normalized LIKE ?" }.joined(separator: " OR ")
+            : "pt.tag_normalized IN (\(placeholders))"
+
+        let sql = """
+        SELECT DISTINCT p.id, p.name, p.company, p.role, p.tone, p.captured_at, p.last_contact, p.is_favorite, p.context, p.personal, p.followup, p.tags, p.apple_contact_identifier, p.apple_contact_last_synced_at, p.apple_contact_sync_checksum, p.apple_contact_snapshot_json
+        FROM people p
+        INNER JOIN person_tags pt ON pt.person_id = p.id
+        WHERE p.deleted_at IS NULL
+          AND (\(predicate))
+        ORDER BY p.captured_at DESC
+        """
+
+        let bindValues = partialMatch ? normalizedTags.map { "%\($0)%" } : normalizedTags
+        return fetchPeople(sql: sql, bindValues: bindValues)
+    }
+
     func insertNote(_ note: NoteModel) {
         let sql = """
         INSERT INTO notes (id, person_id, text, transcription, extracted_json, created_at, is_followup)
@@ -325,7 +370,7 @@ class DatabaseManager {
     }
 
     func fetchNotesForPerson(_ personId: String) -> [NoteModel] {
-        let sql = "SELECT id, person_id, text, transcription, created_at FROM notes WHERE person_id = ? ORDER BY created_at DESC"
+        let sql = "SELECT id, person_id, text, transcription, extracted_json, created_at, is_followup FROM notes WHERE person_id = ? ORDER BY created_at DESC"
         var notes: [NoteModel] = []
 
         var statement: OpaquePointer?
@@ -337,8 +382,13 @@ class DatabaseManager {
                 let pId = String(cString: sqlite3_column_text(statement, 1))
                 let text = String(cString: sqlite3_column_text(statement, 2))
                 let transcription = sqlite3_column_text(statement, 3).map { String(cString: $0) }
+                let extractedJson = decodeExtractedJson(columnText(statement, 4))
+                let createdAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 5)))
+                let isFollowUp = sqlite3_column_int(statement, 6) == 1
 
-                let note = NoteModel(id: id, personId: pId, text: text, transcription: transcription)
+                var note = NoteModel(id: id, personId: pId, text: text, transcription: transcription, createdAt: createdAt)
+                note.extractedJson = extractedJson
+                note.isFollowUp = isFollowUp
                 notes.append(note)
             }
         }
@@ -355,6 +405,101 @@ class DatabaseManager {
         addColumnIfMissing(table: "people", column: "apple_contact_last_synced_at", definition: "DATETIME")
         addColumnIfMissing(table: "people", column: "apple_contact_sync_checksum", definition: "TEXT")
         addColumnIfMissing(table: "people", column: "apple_contact_snapshot_json", definition: "TEXT")
+    }
+
+    private func backfillPersonTags() {
+        let sql = """
+        SELECT id, tags
+        FROM people
+        WHERE deleted_at IS NULL
+          AND tags IS NOT NULL
+          AND id NOT IN (SELECT DISTINCT person_id FROM person_tags)
+        """
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                guard let personId = columnText(statement, 0) else { continue }
+                replaceTags(for: personId, tags: decodeTags(columnText(statement, 1)))
+            }
+        }
+
+        sqlite3_finalize(statement)
+    }
+
+    private func replaceTags(for personId: String, tags: [String]) {
+        let deleteSQL = "DELETE FROM person_tags WHERE person_id = ?"
+        var deleteStatement: OpaquePointer?
+        if sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStatement, nil) == SQLITE_OK {
+            bindText(deleteStatement, 1, personId)
+            sqlite3_step(deleteStatement)
+        }
+        sqlite3_finalize(deleteStatement)
+
+        let cleanedTags = Array(Set(tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }))
+        guard !cleanedTags.isEmpty else { return }
+
+        let insertSQL = "INSERT OR REPLACE INTO person_tags (person_id, tag, tag_normalized) VALUES (?, ?, ?)"
+        for tag in cleanedTags {
+            var insertStatement: OpaquePointer?
+            if sqlite3_prepare_v2(db, insertSQL, -1, &insertStatement, nil) == SQLITE_OK {
+                bindText(insertStatement, 1, personId)
+                bindText(insertStatement, 2, tag)
+                bindText(insertStatement, 3, normalizeTag(tag))
+                sqlite3_step(insertStatement)
+            }
+            sqlite3_finalize(insertStatement)
+        }
+    }
+
+    private func fetchPeople(sql: String, bindValues: [String]) -> [PersonModel] {
+        var people: [PersonModel] = []
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            for (index, value) in bindValues.enumerated() {
+                bindText(statement, Int32(index + 1), value)
+            }
+
+            while sqlite3_step(statement) == SQLITE_ROW {
+                if let person = personFromCurrentRow(statement) {
+                    people.append(person)
+                }
+            }
+        }
+
+        sqlite3_finalize(statement)
+        return people
+    }
+
+    private func personFromCurrentRow(_ statement: OpaquePointer?) -> PersonModel? {
+        let rawId = columnText(statement, 0)
+        guard let id = rawId, !id.isEmpty else {
+            return nil
+        }
+
+        let name = columnText(statement, 1) ?? "Unknown person"
+        let company = columnText(statement, 2) ?? ""
+        let role = columnText(statement, 3) ?? ""
+
+        var person = PersonModel(id: id, name: name, company: company, role: role)
+        person.tone = columnText(statement, 4) ?? "teal"
+        person.capturedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 5)))
+        if sqlite3_column_type(statement, 6) != SQLITE_NULL {
+            person.lastContact = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 6)))
+        }
+        person.isFavorite = sqlite3_column_int(statement, 7) == 1
+        person.context = columnText(statement, 8) ?? ""
+        person.personal = columnText(statement, 9) ?? ""
+        person.followup = columnText(statement, 10) ?? ""
+        person.tags = decodeTags(columnText(statement, 11))
+        person.appleContactIdentifier = columnText(statement, 12)
+        if sqlite3_column_type(statement, 13) != SQLITE_NULL {
+            person.appleContactLastSyncedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 13)))
+        }
+        person.appleContactSyncChecksum = columnText(statement, 14)
+        person.appleContactSnapshotJson = columnText(statement, 15)
+        return person
     }
 
     private func addColumnIfMissing(table: String, column: String, definition: String) {
@@ -423,6 +568,10 @@ class DatabaseManager {
         return tags
     }
 
+    private func normalizeTag(_ tag: String) -> String {
+        tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     private func encodeExtractedJson(_ extractedJson: [String: String]) -> String? {
         guard !extractedJson.isEmpty,
               let data = try? JSONEncoder().encode(extractedJson),
@@ -431,6 +580,16 @@ class DatabaseManager {
         }
 
         return json
+    }
+
+    private func decodeExtractedJson(_ json: String?) -> [String: String] {
+        guard let json,
+              let data = json.data(using: .utf8),
+              let extractedJson = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return [:]
+        }
+
+        return extractedJson
     }
 
     deinit {

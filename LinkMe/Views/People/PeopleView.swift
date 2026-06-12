@@ -37,22 +37,6 @@ struct PeopleView: View {
     private var filteredPeople: [PersonModel] {
         var result = people
 
-        // Filter by selected tag category
-        if selectedFilter != "All" {
-            result = result.filter { person in
-                if selectedFilter == "Investors" {
-                    // Match both "Investor" and "Angel" variations
-                    return person.tags.contains { $0.contains("Investor") || $0.contains("Angel") }
-                } else if selectedFilter == "Founders" {
-                    return person.tags.contains("Founder")
-                } else if selectedFilter == "Execs" {
-                    // Match "Exec" and "Buyer" roles
-                    return person.tags.contains { $0.contains("Exec") || $0.contains("Buyer") }
-                }
-                return true
-            }
-        }
-
         // Filter by name search
         if !searchText.isEmpty {
             result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
@@ -269,6 +253,9 @@ struct PeopleView: View {
         .onChange(of: navigationManager.navigationPath.count) { _, _ in
             loadPeople()
         }
+        .onChange(of: selectedFilter) { _, _ in
+            loadPeople()
+        }
     }
 
     private var emptyState: some View {
@@ -339,7 +326,16 @@ struct PeopleView: View {
     }
 
     private func loadPeople() {
-        people = DatabaseManager.shared.fetchPeople()
+        switch selectedFilter {
+        case "Investors":
+            people = DatabaseManager.shared.fetchPeople(matchingTags: ["Investor", "Angel"], partialMatch: true)
+        case "Founders":
+            people = DatabaseManager.shared.fetchPeople(tagged: "Founder")
+        case "Execs":
+            people = DatabaseManager.shared.fetchPeople(matchingTags: ["Exec", "Buyer"], partialMatch: true)
+        default:
+            people = DatabaseManager.shared.fetchPeople()
+        }
     }
 }
 
