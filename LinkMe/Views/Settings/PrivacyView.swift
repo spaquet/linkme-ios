@@ -100,7 +100,7 @@ struct PrivacyView: View {
                                 VStack(spacing: 0) {
                                     NavigationLink(destination: CardListView()) {
                                         HStack(alignment: .top, spacing: 12) {
-                                            Image(systemName: "person.card")
+                                            Image(systemName: "person.text.rectangle")
                                                 .font(.system(size: 16, weight: .semibold))
                                                 .foregroundColor(LinkMeColors.t600)
                                                 .frame(width: 40, height: 40)

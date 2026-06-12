@@ -85,13 +85,16 @@ struct CardListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { dismiss() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Back")
-                                .font(.system(size: 16, weight: .semibold, design: .default))
-                        }
-                        .foregroundColor(LinkMeColors.t600)
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
+                            .background(LinkMeColors.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
                 }
 
@@ -101,8 +104,15 @@ struct CardListView: View {
                         showCardEditView = true
                     }) {
                         Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(LinkMeColors.t600)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
+                            .background(LinkMeColors.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
                 }
             }
