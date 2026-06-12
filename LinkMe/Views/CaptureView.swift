@@ -102,7 +102,7 @@ struct CaptureView: View {
         .onDisappear {
             timerTask?.cancel()
             wordRevealTask?.cancel()
-            speechManager.stopRecording()
+            speechManager.cancelRecording()
         }
         .onChange(of: speechManager.error) { _, newValue in
             if let error = newValue {
@@ -152,11 +152,10 @@ struct CaptureView: View {
     private func stopListening() {
         timerTask?.cancel()
         wordRevealTask?.cancel()
-        speechManager.stopRecording()
         phase = .processing
 
         Task {
-            try? await Task.sleep(nanoseconds: 1_600_000_000) // 1.6 seconds
+            await speechManager.stopRecording()
             await aiManager.extractFromTranscription(speechManager.recognizedText)
             phase = .result
         }
