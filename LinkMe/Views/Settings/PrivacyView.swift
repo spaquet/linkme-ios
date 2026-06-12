@@ -92,33 +92,6 @@ struct PrivacyView: View {
                                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
                         )
 
-                        // What runs on device
-                        VStack(alignment: .leading, spacing: 10) {
-                            SectionLabel("What runs on device")
-
-                            Card(padding: 0) {
-                                VStack(spacing: 0) {
-                                    PrivacyRow(
-                                        icon: "mic",
-                                        title: "Voice capture & transcription",
-                                        detail: "Speech-to-text and extraction never leave your iPhone.",
-                                        isToggled: .constant(true),
-                                        isLocked: true
-                                    )
-
-                                    Divider(inset: 63)
-
-                                    PrivacyRow(
-                                        icon: "sparkles",
-                                        title: "Briefings & nudges",
-                                        detail: "Summaries and talking points are generated locally.",
-                                        isToggled: .constant(true),
-                                        isLocked: true
-                                    )
-                                }
-                            }
-                        }
-
                         // What needs your permission
                         VStack(alignment: .leading, spacing: 10) {
                             SectionLabel("What needs your permission")
