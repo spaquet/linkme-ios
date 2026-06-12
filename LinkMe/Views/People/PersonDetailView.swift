@@ -31,11 +31,12 @@ struct PersonDetailView: View {
                         }
                     }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 30, height: 30)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(7)
+                            .cornerRadius(8)
+                            .border(LinkMeColors.s200, width: 1)
                     }
 
                     if navigationManager.navigationPath.count > 1 {
@@ -43,11 +44,12 @@ struct PersonDetailView: View {
                             navigationManager.navigationPath.removeAll()
                         }) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(LinkMeColors.s600)
-                                .frame(width: 30, height: 30)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.s500)
+                                .frame(width: 32, height: 32)
                                 .background(LinkMeColors.surface)
-                                .cornerRadius(7)
+                                .cornerRadius(8)
+                                .border(LinkMeColors.s200, width: 1)
                         }
                     }
 
@@ -55,11 +57,12 @@ struct PersonDetailView: View {
 
                     Button(action: {}) {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 30, height: 30)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(7)
+                            .cornerRadius(8)
+                            .border(LinkMeColors.s200, width: 1)
                     }
 
                     Menu {
@@ -81,11 +84,12 @@ struct PersonDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s600)
-                            .frame(width: 30, height: 30)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
                             .background(LinkMeColors.surface)
-                            .cornerRadius(7)
+                            .cornerRadius(8)
+                            .border(LinkMeColors.s200, width: 1)
                     }
                 }
                 .padding(.horizontal, 16)

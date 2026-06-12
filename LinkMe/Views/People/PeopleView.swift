@@ -154,17 +154,17 @@ struct PeopleView: View {
                             Text(filter)
                                 .font(.system(size: 13, weight: .semibold, design: .default))
                                 .foregroundColor(selectedFilter == filter ? .white : LinkMeColors.s600)
-                                .frame(height: 34)
-                                .padding(.horizontal, 14)
+                                .frame(height: 32)
+                                .padding(.horizontal, 12)
                                 .background(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.surface)
                                 .border(selectedFilter == filter ? LinkMeColors.ink : LinkMeColors.s200, width: 1)
-                                .cornerRadius(LinkMeLayout.cornerRadius)
+                                .cornerRadius(8)
                         }
                     }
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 9)
 
                 // List
                 if people.isEmpty && isLoadingPeople {
