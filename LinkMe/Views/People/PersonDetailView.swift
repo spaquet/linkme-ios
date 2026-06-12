@@ -83,7 +83,6 @@ struct PersonDetailView: View {
                             .background(LinkMeColors.surface)
                             .cornerRadius(8)
                     }
-                    .menuActionDismissal(.immediate)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

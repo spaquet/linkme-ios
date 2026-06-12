@@ -138,7 +138,6 @@ struct PeopleView: View {
                             .cornerRadius(12)
                             .border(LinkMeColors.s200, width: 1)
                     }
-                    .menuActionDismissal(.immediate)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
