@@ -119,7 +119,9 @@ final class ContactSyncManager: ObservableObject {
                 DatabaseManager.shared.upsertPerson(person)
             }
 
-            nextStats.exported = await exportLinkedPeople(validContactIdentifiers: Set(contacts.map(\.identifier)))
+            let validContactIdentifiers = Set(contacts.map(\.identifier))
+            DatabaseManager.shared.deletePlaceholderContactPeople(excluding: validContactIdentifiers)
+            nextStats.exported = await exportLinkedPeople(validContactIdentifiers: validContactIdentifiers)
             nextStats.stored = DatabaseManager.shared.fetchPeople().filter { $0.appleContactIdentifier != nil }.count
             stats = nextStats
             state = .synced
@@ -269,7 +271,9 @@ final class ContactSyncManager: ObservableObject {
     }
 
     private nonisolated static func hasUsefulContactData(_ contact: CNContact) -> Bool {
-        !displayName(for: contact).isEmpty ||
+        !contact.givenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !contact.familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !contact.nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
             !contact.organizationName.isEmpty ||
             !contact.emailAddresses.isEmpty ||
             !contact.phoneNumbers.isEmpty

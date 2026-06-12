@@ -1,10 +1,17 @@
 import SwiftUI
 
 struct PersonDetailView: View {
-    let person: PersonModel
+    @State private var person: PersonModel
     let navigationManager: NavigationManager
     @State private var threads: [ThreadModel] = []
     @State private var sharedPeople: [PersonModel] = []
+    @State private var isShowingEditSheet = false
+    @State private var isShowingDeleteConfirmation = false
+
+    init(person: PersonModel, navigationManager: NavigationManager) {
+        self._person = State(initialValue: person)
+        self.navigationManager = navigationManager
+    }
 
     var body: some View {
         ZStack {
@@ -51,7 +58,19 @@ struct PersonDetailView: View {
                             .cornerRadius(8)
                     }
 
-                    Button(action: {}) {
+                    Menu {
+                        Button(action: triggerEnrich) {
+                            Label("Enrich", systemImage: "wand.and.stars")
+                        }
+
+                        Button(action: { isShowingEditSheet = true }) {
+                            Label("Edit", systemImage: "pencil")
+                        }
+
+                        Button(role: .destructive, action: { isShowingDeleteConfirmation = true }) {
+                            Label("Delete Contact", systemImage: "trash")
+                        }
+                    } label: {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -126,7 +145,7 @@ struct PersonDetailView: View {
                                     icon: "wand.and.stars",
                                     label: "Brief me",
                                     primary: true,
-                                    action: {}
+                                    action: triggerEnrich
                                 )
                                 QuickActionButton(
                                     icon: "paperplane.fill",
@@ -381,6 +400,7 @@ struct PersonDetailView: View {
                 }
             }
         }
+        }
         .onAppear {
             threads = MockDataManager.getThreadsForPerson(person.id)
             let shared = person.shared.compactMap { name in
@@ -388,8 +408,30 @@ struct PersonDetailView: View {
             }
             sharedPeople = shared
         }
+        .sheet(isPresented: $isShowingEditSheet) {
+            PersonEditView(person: person) { updatedPerson in
+                person = updatedPerson
+                DatabaseManager.shared.upsertPerson(updatedPerson)
+                updateNavigationPerson(updatedPerson)
+            }
+        }
+        .confirmationDialog(
+            "Delete \(person.name)?",
+            isPresented: $isShowingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Contact", role: .destructive) {
+                DatabaseManager.shared.deletePerson(id: person.id)
+                if !navigationManager.navigationPath.isEmpty {
+                    navigationManager.navigationPath.removeLast()
+                }
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the contact from People.")
+        }
     }
-}
 
     private func formatDate(_ date: Date) -> String {
         let calendar = Calendar.current
@@ -411,6 +453,83 @@ struct PersonDetailView: View {
             return "\(years)y ago"
         }
         return ""
+    }
+
+    private func triggerEnrich() {
+        navigationManager.openBriefing(person)
+    }
+
+    private func updateNavigationPerson(_ updatedPerson: PersonModel) {
+        guard let index = navigationManager.navigationPath.firstIndex(where: { $0.id == updatedPerson.id }) else {
+            return
+        }
+        navigationManager.navigationPath[index] = updatedPerson
+    }
+}
+
+// MARK: - Person Edit
+struct PersonEditView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: PersonModel
+    let onSave: (PersonModel) -> Void
+
+    init(person: PersonModel, onSave: @escaping (PersonModel) -> Void) {
+        self._draft = State(initialValue: person)
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Identity") {
+                    TextField("Name", text: $draft.name)
+                    TextField("Role", text: $draft.role)
+                    TextField("Company", text: $draft.company)
+                    TextField("Location", text: $draft.location)
+                }
+
+                Section("Relationship") {
+                    TextField("Met", text: $draft.met)
+                    TextField("Tags", text: tagsText)
+                }
+
+                Section("Context") {
+                    TextEditor(text: $draft.context)
+                        .frame(minHeight: 90)
+                    TextEditor(text: $draft.personal)
+                        .frame(minHeight: 70)
+                }
+            }
+            .navigationTitle("Edit Contact")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(draft)
+                        dismiss()
+                    }
+                    .disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    private var tagsText: Binding<String> {
+        Binding(
+            get: { draft.tags.joined(separator: ", ") },
+            set: { value in
+                draft.tags = value
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        )
     }
 }
 

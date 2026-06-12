@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PeopleView: View {
-    let navigationManager: NavigationManager
+    @Bindable var navigationManager: NavigationManager
     @Binding var selectedTab: Int
     @StateObject private var contactSync = ContactSyncManager.shared
     @State private var people: [PersonModel] = []
@@ -229,6 +229,9 @@ struct PeopleView: View {
             if state == .synced {
                 loadPeople()
             }
+        }
+        .onChange(of: navigationManager.navigationPath.count) { _, _ in
+            loadPeople()
         }
     }
 

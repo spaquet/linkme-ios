@@ -18,6 +18,7 @@ class DatabaseManager {
         dbPath = appSupportURL.appendingPathComponent("linkme.db").path
         openDatabase()
         initializeSchema()
+        cleanupBrokenRecords()
     }
 
     private func openDatabase() {
@@ -26,6 +27,15 @@ class DatabaseManager {
         } else {
             print("✗ Error opening database")
         }
+    }
+
+    private func cleanupBrokenRecords() {
+        let sql = "DELETE FROM people WHERE id IS NULL OR id = ''"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_step(statement)
+        }
+        sqlite3_finalize(statement)
     }
 
     private func initializeSchema() {
@@ -218,6 +228,35 @@ class DatabaseManager {
         fetchPeople().first { $0.appleContactIdentifier == appleContactIdentifier }
     }
 
+    func deletePlaceholderContactPeople(excluding appleContactIdentifiers: Set<String>) {
+        let placeholders = fetchPeople().filter { person in
+            guard let identifier = person.appleContactIdentifier else { return false }
+            return !appleContactIdentifiers.contains(identifier)
+                && person.name == "Unnamed contact"
+                && person.company.isEmpty
+                && person.role.isEmpty
+        }
+
+        for person in placeholders {
+            softDeletePerson(id: person.id)
+        }
+    }
+
+    func deletePerson(id: String) {
+        softDeletePerson(id: id)
+    }
+
+    private func softDeletePerson(id: String) {
+        let sql = "UPDATE people SET deleted_at = ? WHERE id = ?"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, Int64(Date().timeIntervalSince1970))
+            bindText(statement, 2, id)
+            sqlite3_step(statement)
+        }
+        sqlite3_finalize(statement)
+    }
+
     func fetchPeople() -> [PersonModel] {
         let sql = """
         SELECT id, name, company, role, tone, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json
@@ -230,7 +269,10 @@ class DatabaseManager {
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
-                let id = columnText(statement, 0) ?? UUID().uuidString
+                let rawId = columnText(statement, 0)
+                guard let id = rawId, !id.isEmpty else {
+                    continue
+                }
                 let name = columnText(statement, 1) ?? "Unknown person"
                 let company = columnText(statement, 2) ?? ""
                 let role = columnText(statement, 3) ?? ""
