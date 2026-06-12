@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct CardEditView: View {
     @Environment(\.dismiss) var dismiss
@@ -630,30 +631,8 @@ enum CardField: Hashable {
 struct LocationPickerSheet: View {
     @Binding var location: String
     @Binding var isPresented: Bool
-    @State private var searchText = ""
-
-    private let locations = [
-        "New York, US", "Los Angeles, US", "Chicago, US", "Houston, US", "Phoenix, US",
-        "Philadelphia, US", "San Antonio, US", "San Diego, US", "Dallas, US", "San Jose, US",
-        "Austin, US", "Jacksonville, US", "Fort Worth, US", "Columbus, US", "Charlotte, US",
-        "San Francisco, US", "Boston, US", "Seattle, US", "Denver, US", "Washington, DC, US",
-        "London, UK", "Manchester, UK", "Birmingham, UK", "Leeds, UK", "Glasgow, UK",
-        "Toronto, CA", "Vancouver, CA", "Montreal, CA", "Calgary, CA", "Ottawa, CA",
-        "Sydney, AU", "Melbourne, AU", "Brisbane, AU", "Perth, AU", "Adelaide, AU",
-        "Tokyo, JP", "Osaka, JP", "Yokohama, JP", "Nagoya, JP", "Sapporo, JP",
-        "Paris, FR", "Marseille, FR", "Lyon, FR", "Toulouse, FR", "Nice, FR",
-        "Berlin, DE", "Munich, DE", "Cologne, DE", "Hamburg, DE", "Frankfurt, DE",
-        "Singapore, SG", "Bangkok, TH", "Hong Kong, HK", "Mumbai, IN", "Delhi, IN",
-        "São Paulo, BR", "Rio de Janeiro, BR", "Salvador, BR", "Brasília, BR",
-        "Mexico City, MX", "Guadalajara, MX", "Cancún, MX"
-    ].sorted()
-
-    private var filteredLocations: [String] {
-        if searchText.isEmpty {
-            return locations
-        }
-        return locations.filter { $0.localizedCaseInsensitiveContains(searchText) }
-    }
+    @State private var locationInput = ""
+    @State private var locationManager = LocationManager()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -670,62 +649,69 @@ struct LocationPickerSheet: View {
                     }
                 }
 
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(LinkMeColors.s400)
-
-                    TextField("Search", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 15, design: .default))
-                        .foregroundColor(LinkMeColors.ink)
-                        .accentColor(LinkMeColors.t500)
-
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "mappin.circle.fill")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(LinkMeColors.s400)
+
+                            TextField("e.g., Paris, France", text: $locationInput)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 15, design: .default))
+                                .foregroundColor(LinkMeColors.ink)
+                                .accentColor(LinkMeColors.t500)
+
+                            if !locationInput.isEmpty {
+                                Button(action: { locationInput = "" }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(LinkMeColors.s400)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(LinkMeColors.surface)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(LinkMeColors.s200, lineWidth: 1)
+                        )
+
+                        Button(action: {
+                            locationManager.requestLocation()
+                        }) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 40, height: 40)
+                                .background(LinkMeColors.t500)
+                                .cornerRadius(10)
                         }
                     }
+
+                    Text("Format: City, State/Country (e.g., Los Angeles, CA, USA or Mumbai, India)")
+                        .font(.system(size: 12, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(LinkMeColors.s100)
+                .padding(.vertical, 12)
+                .background(LinkMeColors.s50)
                 .cornerRadius(10)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
 
-            ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(filteredLocations, id: \.self) { loc in
-                        Button(action: {
-                            location = loc
-                            isPresented = false
-                        }) {
-                            HStack {
-                                Text(loc)
-                                    .font(.system(size: 15, design: .default))
-                                    .foregroundColor(LinkMeColors.ink)
-                                Spacer()
-                                if location == loc {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundColor(LinkMeColors.t500)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .contentShape(Rectangle())
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
+            Spacer()
 
             VStack(spacing: 12) {
-                Button(action: { isPresented = false }) {
+                Button(action: {
+                    if !locationInput.isEmpty {
+                        location = locationInput.trimmingCharacters(in: .whitespaces)
+                        isPresented = false
+                    }
+                }) {
                     Text("Done")
                         .font(.system(size: 16, weight: .semibold, design: .default))
                         .frame(maxWidth: .infinity)
@@ -734,11 +720,72 @@ struct LocationPickerSheet: View {
                         .background(LinkMeColors.ink)
                         .cornerRadius(12)
                 }
+                .disabled(locationInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                .opacity(locationInput.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
             }
             .padding(16)
             .background(LinkMeColors.canvas)
         }
         .background(LinkMeColors.canvas)
+        .onAppear {
+            locationInput = location
+        }
+        .onChange(of: locationManager.currentLocation) { _, newLocation in
+            if let newLocation = newLocation {
+                locationInput = newLocation
+            }
+        }
+    }
+}
+
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let locationManager = CLLocationManager()
+    @Published var currentLocation: String?
+
+    override init() {
+        super.init()
+        locationManager.delegate = self
+    }
+
+    func requestLocation() {
+        let status = CLLocationManager.authorizationStatus()
+        switch status {
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.requestLocation()
+        default:
+            break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+
+        let geocoder = CLGeocoder()
+        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
+            if let placemark = placemarks?.first {
+                var components: [String] = []
+
+                if let city = placemark.locality {
+                    components.append(city)
+                }
+                if let state = placemark.administrativeArea {
+                    components.append(state)
+                }
+                if let country = placemark.country {
+                    components.append(country)
+                }
+
+                let formattedLocation = components.joined(separator: ", ")
+                DispatchQueue.main.async {
+                    self?.currentLocation = formattedLocation
+                }
+            }
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     }
 }
 
