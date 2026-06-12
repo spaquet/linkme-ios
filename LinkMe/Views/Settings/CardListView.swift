@@ -133,7 +133,7 @@ struct CardListView: View {
     }
 
     private func setDefault(_ card: CardModel) {
-        DatabaseManager.shared.setDefaultCard(card.id)
+        DatabaseManager.shared.setDefaultCard(cardId: card.id)
         loadCards()
     }
 
