@@ -1,11 +1,188 @@
+import EventKit
 import SwiftUI
+
+struct TodayCalendarEvent: Identifiable {
+    enum EventKind {
+        case meeting
+        case lunch
+        case dinner
+        case coffee
+        case drinks
+        case sport
+
+        var icon: String {
+            switch self {
+            case .meeting: return "calendar"
+            case .lunch: return "fork.knife"
+            case .dinner: return "moon.stars"
+            case .coffee: return "cup.and.saucer"
+            case .drinks: return "wineglass"
+            case .sport: return "figure.run"
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .meeting: return "Meeting"
+            case .lunch: return "Lunch"
+            case .dinner: return "Dinner"
+            case .coffee: return "Coffee"
+            case .drinks: return "Drinks"
+            case .sport: return "Sport"
+            }
+        }
+    }
+
+    let id: String
+    let startsAt: Date
+    let title: String
+    let location: String
+    let person: PersonModel?
+    let attendeeCount: Int
+    let kind: EventKind
+    let channel: String
+    let briefing: String
+
+    var formattedTime: String {
+        Self.timeFormatter.string(from: startsAt)
+    }
+
+    var displayName: String {
+        person?.name ?? title
+    }
+
+    var subtitle: String {
+        if let person {
+            return "\(person.role) · \(person.company)"
+        }
+        return location
+    }
+
+    var isGroupEvent: Bool {
+        attendeeCount > 1
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }()
+
+    static var mockCalendar: [TodayCalendarEvent] {
+        let calendar = Calendar.current
+        let now = Date()
+
+        func todayAt(hour: Int, minute: Int = 0) -> Date {
+            var components = calendar.dateComponents([.year, .month, .day], from: now)
+            components.hour = hour
+            components.minute = minute
+            return calendar.date(from: components) ?? now
+        }
+
+        let people = MockDataManager.mockPeople
+        return [
+            TodayCalendarEvent(
+                id: "meridian-partner-checkin",
+                startsAt: todayAt(hour: 15),
+                title: "Meridian partner check-in",
+                location: "Zoom",
+                person: people.first { $0.id == "1" },
+                attendeeCount: 1,
+                kind: .meeting,
+                channel: "Zoom",
+                briefing: "He owes you the data-infra memo, and you offered the Naomi intro. Lead with the fund close, announced Tuesday."
+            ),
+            TodayCalendarEvent(
+                id: "team-sync",
+                startsAt: todayAt(hour: 16, minute: 30),
+                title: "Team sync",
+                location: "Conference room",
+                person: nil,
+                attendeeCount: 6,
+                kind: .meeting,
+                channel: "In person",
+                briefing: "Check open capture cleanup and confirm the onboarding copy changes before the next build."
+            ),
+            TodayCalendarEvent(
+                id: "alex-dinner",
+                startsAt: todayAt(hour: 18),
+                title: "Dinner with Alex",
+                location: "Downtown",
+                person: people.first { $0.id == "3" },
+                attendeeCount: 1,
+                kind: .dinner,
+                channel: "In person",
+                briefing: "Alex is raising a Series B and previously mentioned Naomi. Ask where the round stands before offering a new intro."
+            )
+        ]
+    }
+}
 
 struct TodayView: View {
     let navigationManager: NavigationManager
     let appState: AppState
     @Binding var selectedTab: Int
-    @State private var people: [PersonModel] = MockDataManager.mockPeople
+    @State private var recentCaptures: [PersonModel] = []
     @State private var nudges: [NudgeModel] = MockDataManager.mockNudges
+    @State private var calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+    private let eventStore = EKEventStore()
+
+    private var isCalendarConnected: Bool {
+        if #available(iOS 17.0, *) {
+            return calendarAuthorizationStatus == .fullAccess
+        }
+        return calendarAuthorizationStatus == .authorized
+    }
+
+    private var upcomingEvents: [TodayCalendarEvent] {
+        TodayCalendarEvent.mockCalendar
+            .filter { $0.startsAt >= Date() }
+            .sorted { $0.startsAt < $1.startsAt }
+    }
+
+    private var upNextEvent: TodayCalendarEvent? {
+        upcomingEvents.first
+    }
+
+    private var laterTodayEvents: [TodayCalendarEvent] {
+        Array(upcomingEvents.dropFirst().prefix(2))
+    }
+
+    private var calendarPreviewEvents: [TodayCalendarEvent] {
+        Array(TodayCalendarEvent.mockCalendar.dropFirst().prefix(2))
+    }
+
+    private func loadRecentCaptures() {
+        recentCaptures = Array(DatabaseManager.shared.fetchPeople().prefix(10))
+    }
+
+    private func requestCalendarAccess() {
+        Task {
+            do {
+                if #available(iOS 17.0, *) {
+                    _ = try await eventStore.requestFullAccessToEvents()
+                } else {
+                    let _: Bool = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                        eventStore.requestAccess(to: .event) { granted, error in
+                            if let error {
+                                continuation.resume(throwing: error)
+                            } else {
+                                continuation.resume(returning: granted)
+                            }
+                        }
+                    }
+                }
+
+                await MainActor.run {
+                    calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+                }
+            } catch {
+                await MainActor.run {
+                    calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+                }
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -23,32 +200,62 @@ struct TodayView: View {
                 ScrollView {
                     VStack(spacing: 22) {
                         // UP NEXT
-                        VStack(spacing: 10) {
-                            HStack(spacing: 8) {
-                                SectionLabel("Up next · 3:00 PM")
-                                Spacer()
-                                OnDeviceChip()
-                            }
+                        if isCalendarConnected, let upNextEvent {
+                            VStack(spacing: 10) {
+                                SectionLabel("Up next · \(upNextEvent.formattedTime)")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                            UpNextCard(navigationManager: navigationManager)
+                                UpNextCard(event: upNextEvent, navigationManager: navigationManager)
+                            }
+                        } else if isCalendarConnected {
+                            VStack(spacing: 10) {
+                                SectionLabel("Up next")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                EmptyCalendarDayCard()
+                            }
+                        } else {
+                            VStack(spacing: 10) {
+                                SectionLabel("Up next")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                ConnectCalendarCard {
+                                    requestCalendarAccess()
+                                }
+                            }
                         }
 
                         // LATER TODAY
-                        VStack(spacing: 10) {
-                            SectionLabel("Later today")
+                        if isCalendarConnected, !laterTodayEvents.isEmpty {
+                            VStack(spacing: 10) {
+                                SectionLabel("Later today")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                            Card(padding: 0) {
-                                VStack(spacing: 0) {
-                                    ForEach(0..<2, id: \.self) { i in
-                                        LaterTodayItem(
-                                            time: i == 0 ? "4:30 PM" : "6:00 PM",
-                                            title: i == 0 ? "Team sync" : "Dinner with Alex",
-                                            location: i == 0 ? "Conference room" : "Downtown",
-                                            personName: i == 0 ? nil : "Alex Rivera"
-                                        )
+                                Card(padding: 0) {
+                                    VStack(spacing: 0) {
+                                        ForEach(Array(laterTodayEvents.enumerated()), id: \.element.id) { index, event in
+                                            LaterTodayItem(event: event)
 
-                                        if i == 0 {
-                                            Divider(inset: 68)
+                                            if index < laterTodayEvents.count - 1 {
+                                                Divider(inset: 68)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else if !isCalendarConnected, !calendarPreviewEvents.isEmpty {
+                            VStack(spacing: 10) {
+                                SectionLabel("Later today")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Card(padding: 0) {
+                                    VStack(spacing: 0) {
+                                        ForEach(Array(calendarPreviewEvents.enumerated()), id: \.element.id) { index, event in
+                                            LaterTodayItem(event: event, isPreview: true)
+
+                                            if index < calendarPreviewEvents.count - 1 {
+                                                Divider(inset: 68)
+                                            }
                                         }
                                     }
                                 }
@@ -76,8 +283,8 @@ struct TodayView: View {
                             }
                         }
 
-                        // RECENT CAPTURES (only show if 3+ contacts)
-                        if people.count >= 3 {
+                        // RECENT CAPTURES
+                        if !recentCaptures.isEmpty {
                             VStack(spacing: 10) {
                                 SectionLabel("Recent captures")
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -86,8 +293,8 @@ struct TodayView: View {
                                     HStack(spacing: 10) {
                                         Button(action: {
                                             withAnimation {
-                                                if !people.isEmpty {
-                                                    proxy.scrollTo(people[0].id, anchor: .leading)
+                                                if !recentCaptures.isEmpty {
+                                                    proxy.scrollTo(recentCaptures[0].id, anchor: .leading)
                                                 }
                                             }
                                         }) {
@@ -102,7 +309,7 @@ struct TodayView: View {
 
                                         ScrollView(.horizontal, showsIndicators: false) {
                                             HStack(spacing: 10) {
-                                                ForEach(people.prefix(6), id: \.id) { person in
+                                                ForEach(recentCaptures, id: \.id) { person in
                                                     Button(action: {
                                                         navigationManager.navigationPath.append(person)
                                                     }) {
@@ -111,7 +318,7 @@ struct TodayView: View {
                                                                 Avatar(name: person.name, size: 48, tone: person.tone)
 
                                                                 VStack(spacing: 2) {
-                                                                    Text(person.name.split(separator: " ")[0])
+                                                                    Text(person.name.split(separator: " ").first.map(String.init) ?? person.name)
                                                                         .font(.system(size: 13, weight: .semibold, design: .default))
                                                                         .foregroundColor(LinkMeColors.ink)
                                                                         .lineLimit(1)
@@ -135,10 +342,8 @@ struct TodayView: View {
 
                                         Button(action: {
                                             withAnimation {
-                                                if people.count >= 6 {
-                                                    proxy.scrollTo(people[5].id, anchor: .trailing)
-                                                } else if !people.isEmpty {
-                                                    proxy.scrollTo(people[people.count - 1].id, anchor: .trailing)
+                                                if let last = recentCaptures.last {
+                                                    proxy.scrollTo(last.id, anchor: .trailing)
                                                 }
                                             }
                                         }) {
@@ -160,6 +365,13 @@ struct TodayView: View {
                     .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                 }
             }
+        }
+        .onAppear {
+            loadRecentCaptures()
+            calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        }
+        .onChange(of: navigationManager.navigationPath.count) { _, _ in
+            loadRecentCaptures()
         }
     }
 }
@@ -248,7 +460,99 @@ struct TopBar: View {
 }
 
 // MARK: - Up Next Card
+struct EmptyCalendarDayCard: View {
+    var body: some View {
+        Card(padding: 18) {
+            HStack(spacing: 14) {
+                EventIcon(kind: .coffee, size: 56, highlighted: true)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("No more events today")
+                        .font(.system(size: 19, weight: .semibold, design: .default))
+                        .tracking(-0.02)
+                        .foregroundColor(LinkMeColors.ink)
+
+                    Text("When your calendar has a meeting, lunch, coffee, or group event, it will appear here with the right briefing context.")
+                        .font(.system(size: 14.5, design: .default))
+                        .foregroundColor(LinkMeColors.s600)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+            }
+        }
+    }
+}
+
+struct ConnectCalendarCard: View {
+    let action: () -> Void
+
+    var body: some View {
+        Card(padding: 0) {
+            VStack(spacing: 0) {
+                VStack(spacing: 14) {
+                    HStack(spacing: 14) {
+                        EventIcon(kind: .meeting, size: 56, highlighted: true)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Connect your calendar")
+                                .font(.system(size: 19, weight: .semibold, design: .default))
+                                .tracking(-0.02)
+                                .foregroundColor(LinkMeColors.ink)
+                        }
+
+                        Spacer()
+
+                        Chip("iPhone", tone: .teal, icon: "calendar")
+                    }
+
+                    VStack(spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(LinkMeColors.t700)
+
+                            Text("What you will get")
+                                .font(.system(size: 11.5, weight: .semibold, design: .default))
+                                .tracking(0.02)
+                                .textCase(.uppercase)
+                                .foregroundColor(LinkMeColors.t700)
+
+                            Spacer()
+                        }
+
+                        Text("Before a meeting, lunch, coffee, or group event, LinkMe will show who is involved, where it is, and the one thing worth remembering.")
+                            .font(.system(size: 14.5, design: .default))
+                            .foregroundColor(LinkMeColors.s700)
+                            .lineHeight(1.5)
+                    }
+                    .padding(14)
+                    .background(LinkMeColors.t50)
+                    .cornerRadius(14)
+                }
+                .padding(18)
+
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.plus")
+                            .font(.system(size: 18, weight: .semibold))
+
+                        Text("Connect calendar")
+                            .font(.system(size: 16, weight: .semibold, design: .default))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .foregroundColor(.white)
+                    .background(LinkMeColors.ink)
+                }
+            }
+        }
+    }
+}
+
 struct UpNextCard: View {
+    let event: TodayCalendarEvent
     let navigationManager: NavigationManager
 
     var body: some View {
@@ -256,22 +560,22 @@ struct UpNextCard: View {
             VStack(spacing: 0) {
                 VStack(spacing: 14) {
                     HStack(spacing: 14) {
-                        Avatar(name: "Marcus Chen", size: 56, ring: true)
+                        Avatar(name: event.displayName, size: 56, ring: true)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Marcus Chen")
+                            Text(event.displayName)
                                 .font(.system(size: 19, weight: .semibold, design: .default))
                                 .tracking(-0.02)
                                 .foregroundColor(LinkMeColors.ink)
 
-                            Text("General Partner · Meridian Ventures")
+                            Text(event.subtitle)
                                 .font(.system(size: 13.5, design: .default))
                                 .foregroundColor(LinkMeColors.s500)
                         }
 
                         Spacer()
 
-                        Chip("Zoom", tone: .slate)
+                        Chip(event.channel, tone: .slate, icon: event.kind.icon)
                     }
 
                     VStack(spacing: 6) {
@@ -289,7 +593,7 @@ struct UpNextCard: View {
                             Spacer()
                         }
 
-                        Text("He owes you the data-infra memo, and you offered the Naomi intro. Lead with the fund close — announced Tuesday.")
+                        Text(event.briefing)
                             .font(.system(size: 14.5, design: .default))
                             .foregroundColor(LinkMeColors.s700)
                             .lineHeight(1.5)
@@ -301,15 +605,15 @@ struct UpNextCard: View {
                 .padding(18)
 
                 Button(action: {
-                    if let firstPerson = MockDataManager.mockPeople.first {
-                        navigationManager.openBriefing(firstPerson)
+                    if let person = event.person {
+                        navigationManager.openBriefing(person)
                     }
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "wand.and.stars")
                             .font(.system(size: 18, weight: .semibold))
 
-                        Text("Brief me before 3:00")
+                        Text("Brief me before \(event.formattedTime)")
                             .font(.system(size: 16, weight: .semibold, design: .default))
                     }
                     .frame(maxWidth: .infinity)
@@ -317,6 +621,7 @@ struct UpNextCard: View {
                     .foregroundColor(.white)
                     .background(LinkMeColors.ink)
                 }
+                .disabled(event.person == nil)
             }
         }
     }
@@ -324,14 +629,12 @@ struct UpNextCard: View {
 
 // MARK: - Later Today Item
 struct LaterTodayItem: View {
-    let time: String
-    let title: String
-    let location: String
-    let personName: String?
+    let event: TodayCalendarEvent
+    var isPreview: Bool = false
 
     var body: some View {
         HStack(spacing: 13) {
-            Text(time)
+            Text(event.formattedTime)
                 .font(.system(size: 13, weight: .semibold, design: .default))
                 .foregroundColor(LinkMeColors.s600)
                 .frame(width: 52, alignment: .trailing)
@@ -340,34 +643,59 @@ struct LaterTodayItem: View {
                 .fill(LinkMeColors.s200)
                 .frame(width: 1, height: 30)
 
-            if let personName = personName {
-                Avatar(name: personName, size: 34)
+            if let person = event.person, !event.isGroupEvent {
+                Avatar(name: person.name, size: 34)
             } else {
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(LinkMeColors.t600)
-                    .frame(width: 34, height: 34, alignment: .center)
-                    .background(LinkMeColors.t50)
-                    .cornerRadius(11)
+                EventIcon(kind: event.kind, size: 34, highlighted: false)
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(event.title)
                     .font(.system(size: 15, weight: .semibold, design: .default))
                     .foregroundColor(LinkMeColors.ink)
 
-                Text(location)
+                Text(isPreview ? previewDetail : event.location)
                     .font(.system(size: 12.5, design: .default))
                     .foregroundColor(LinkMeColors.s500)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
             }
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(LinkMeColors.s300)
+            if !isPreview {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(LinkMeColors.s300)
+            }
         }
         .padding(13)
+    }
+
+    private var previewDetail: String {
+        if event.isGroupEvent {
+            return "\(event.attendeeCount) people · \(event.location)"
+        }
+        return event.location
+    }
+}
+
+struct EventIcon: View {
+    let kind: TodayCalendarEvent.EventKind
+    let size: CGFloat
+    let highlighted: Bool
+
+    var body: some View {
+        Image(systemName: kind.icon)
+            .font(.system(size: size * 0.45, weight: .semibold))
+            .foregroundColor(LinkMeColors.t600)
+            .frame(width: size, height: size, alignment: .center)
+            .background(highlighted ? LinkMeColors.t100 : LinkMeColors.t50)
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.32)
+                    .strokeBorder(LinkMeColors.t200, lineWidth: highlighted ? 2 : 1)
+            )
+            .cornerRadius(size * 0.32)
     }
 }
 
