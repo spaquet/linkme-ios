@@ -355,9 +355,13 @@ struct ResultPhaseView: View {
                                     .foregroundColor(LinkMeColors.s500)
 
                                 HStack(spacing: 6) {
-                                    Chip("Founder", tone: .teal)
-                                    Chip("Healthtech", tone: .teal)
-                                    Chip("Seed", tone: .teal)
+                                    if data.tags.isEmpty {
+                                        Chip("Captured", tone: .teal)
+                                    } else {
+                                        ForEach(data.tags.prefix(4), id: \.self) { tag in
+                                            Chip(tag, tone: .teal)
+                                        }
+                                    }
                                 }
                             }
 

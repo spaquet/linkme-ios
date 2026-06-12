@@ -10,10 +10,32 @@ import Testing
 
 struct LinkMeTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+    @Test func extractionKeepsFullNameAfterMeetingVerb() async throws {
+        let data = AIExtractionManager.fallbackExtract("Met Carl Johnson")
+
+        #expect(data.name == "Carl Johnson")
+        #expect(data.name != "Met Carl")
+    }
+
+    @Test func extractionRemovesSpeechPunctuationFromShortName() async throws {
+        let data = AIExtractionManager.fallbackExtract("Hind Louis.")
+
+        #expect(data.name == "Hind Louis")
+        #expect(data.name?.hasSuffix(".") == false)
+    }
+
+    @Test func extractionFindsRelationshipFields() async throws {
+        let data = AIExtractionManager.fallbackExtract(
+            "Met Elena Park at Northstar Health. Founder raising seed. Send intro to Mara tomorrow."
+        )
+
+        #expect(data.name == "Elena Park")
+        #expect(data.company == "Northstar Health")
+        #expect(data.role == "Founder")
+        #expect(data.tags.contains("Founder"))
+        #expect(data.tags.contains("Seed"))
+        #expect(data.tags.contains("Follow-up"))
+        #expect(data.followUp != nil)
     }
 
 }

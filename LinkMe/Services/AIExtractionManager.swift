@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 struct ExtractedPersonData {
     var name: String?
@@ -7,6 +10,7 @@ struct ExtractedPersonData {
     var liveContext: String?
     var followUp: String?
     var personalDetail: String?
+    var tags: [String] = []
 }
 
 @Observable
@@ -19,47 +23,333 @@ class AIExtractionManager {
         isExtracting = true
         defer { isExtracting = false }
 
-        do {
-            // Placeholder: Mock extraction logic
-            // In production, this would call Foundation Models or cloud API
-
-            try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s delay for demo
-
-            let data = mockExtract(text)
+        if let data = await extractWithFoundationModels(text) {
             self.extractedData = data
-        } catch {
-            self.error = "Extraction failed: \(error.localizedDescription)"
+            return
         }
+
+        self.extractedData = Self.fallbackExtract(text)
     }
 
-    private func mockExtract(_ text: String) -> ExtractedPersonData {
-        // Simple heuristic parsing for demo
-        let words = text.split(separator: " ").map(String.init)
+    static func fallbackExtract(_ text: String) -> ExtractedPersonData {
+        let cleanedText = cleanFreeformText(text)
+        let words = words(in: cleanedText)
+        let lowerWords = words.map { $0.lowercased() }
 
         var data = ExtractedPersonData()
+        data.name = extractName(from: words, lowerWords: lowerWords)
+        data.company = extractCompany(from: words, lowerWords: lowerWords)
+        data.role = extractRole(from: words, lowerWords: lowerWords)
+        data.liveContext = extractLiveContext(from: cleanedText)
+        data.followUp = extractFollowUp(from: cleanedText)
+        data.personalDetail = extractPersonalDetail(from: cleanedText)
+        data.tags = extractTags(from: cleanedText, role: data.role)
 
-        // Try to find name (first 2 capitalized words)
-        if words.count >= 2,
-           words[0].first?.isUppercase ?? false,
-           words[1].first?.isUppercase ?? false {
-            data.name = "\(words[0]) \(words[1])"
+        return data.normalized()
+    }
+
+    private func extractWithFoundationModels(_ text: String) async -> ExtractedPersonData? {
+#if canImport(FoundationModels)
+        guard case .available = SystemLanguageModel.default.availability else {
+            return nil
         }
 
-        // Try to find company or role keywords
-        if let companyIdx = words.firstIndex(where: { $0.lowercased() == "at" }),
-           companyIdx < words.count - 1 {
-            data.company = words[companyIdx + 1]
+        do {
+            let session = LanguageModelSession(instructions: Self.foundationModelInstructions)
+            let response = try await session.respond(
+                to: """
+                Transcript:
+                \(text)
+                """,
+                generating: PersonExtractionSchema.self
+            )
+            return response.content.extractedPersonData.normalized()
+        } catch {
+            self.error = "Apple Intelligence extraction was unavailable, so LinkMe used local parsing."
+            return nil
         }
+#else
+        return nil
+#endif
+    }
 
-        if let roleIdx = words.firstIndex(where: { $0.lowercased().contains("partner") || $0.lowercased().contains("ceo") || $0.lowercased().contains("founder") }) {
-            data.role = words[roleIdx]
-        }
+    private static let foundationModelInstructions = """
+    You extract relationship-memory fields from short speech transcripts for LinkMe.
+    Return only information supported by the transcript.
+    Do not include meeting verbs such as "met", "meet", "meeting", "spoke", or "talked" in a person's name.
+    Clean speech punctuation from names. For example, "Hind Louis." is the name "Hind Louis".
+    Prefer a full first and last name when present. If only one name is present, return that one name.
+    For unknown fields, return an empty string or an empty tags array.
+    Tags should be concise relationship labels like Founder, Investor, Exec, Healthtech, AI, Seed, Follow-up.
+    Follow-up should capture promised next actions, intros, sends, reminders, or open loops.
+    Personal detail should capture human details such as family, interests, location, preferences, or memorable facts.
+    Live context should summarize why this person matters right now.
+    """
+}
 
-        // Extract context (anything after key phrases)
-        if let contextIdx = words.firstIndex(where: { $0.lowercased() == "closing" || $0.lowercased() == "launching" }) {
-            data.liveContext = words[contextIdx...].joined(separator: " ")
-        }
+private extension ExtractedPersonData {
+    func normalized() -> ExtractedPersonData {
+        ExtractedPersonData(
+            name: Self.cleanOptional(name),
+            company: Self.cleanOptional(company),
+            role: Self.cleanOptional(role),
+            liveContext: Self.cleanOptional(liveContext),
+            followUp: Self.cleanOptional(followUp),
+            personalDetail: Self.cleanOptional(personalDetail),
+            tags: tags
+                .map { Self.cleanTag($0) }
+                .filter { !$0.isEmpty }
+                .uniqued()
+        )
+    }
 
-        return data
+    private static func cleanOptional(_ value: String?) -> String? {
+        let cleaned = value.map(cleanField) ?? ""
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    private static func cleanField(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'.,;:!?"))
+    }
+
+    private static func cleanTag(_ value: String) -> String {
+        cleanField(value)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 }
+
+private extension AIExtractionManager {
+    static func cleanFreeformText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func words(in text: String) -> [String] {
+        text
+            .split(separator: " ")
+            .map { cleanToken(String($0)) }
+            .filter { !$0.isEmpty }
+    }
+
+    static func cleanToken(_ token: String) -> String {
+        token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'.,;:!?()[]{}"))
+    }
+
+    static func extractName(from words: [String], lowerWords: [String]) -> String? {
+        guard !words.isEmpty else { return nil }
+
+        let stopWords: Set<String> = [
+            "at", "from", "with", "who", "that", "and", "about", "around",
+            "for", "to", "on", "in", "during", "because", "needs", "need",
+            "is", "was", "works", "building", "founder", "ceo", "cto", "cfo",
+            "partner", "investor", "director", "manager", "vp", "head"
+        ]
+        let leadingWords: Set<String> = [
+            "i", "we", "just", "today", "tonight", "yesterday", "finally",
+            "met", "meet", "meeting", "spoke", "saw", "talked", "connected",
+            "introduced", "caught", "up", "with"
+        ]
+
+        var startIndex = 0
+        while startIndex < lowerWords.count, leadingWords.contains(lowerWords[startIndex]) {
+            startIndex += 1
+        }
+
+        var nameTokens: [String] = []
+        for index in startIndex..<words.count {
+            let lower = lowerWords[index]
+            if stopWords.contains(lower) { break }
+            if isLikelyNameToken(words[index]) || isNameParticle(lower) {
+                nameTokens.append(words[index])
+                if nameTokens.count == 4 { break }
+            } else if !nameTokens.isEmpty {
+                break
+            }
+        }
+
+        if nameTokens.isEmpty, words.count == 2, words.allSatisfy(isLikelyNameToken) {
+            nameTokens = words
+        }
+
+        return nameTokens.isEmpty ? nil : nameTokens.joined(separator: " ")
+    }
+
+    static func extractCompany(from words: [String], lowerWords: [String]) -> String? {
+        let markers = ["at", "from", "with"]
+        guard let markerIndex = lowerWords.firstIndex(where: { markers.contains($0) }),
+              markerIndex < words.count - 1 else {
+            return nil
+        }
+
+        let stopWords: Set<String> = [
+            "as", "who", "and", "but", "because", "needs", "need", "talked",
+            "spoke", "met", "about", "on", "for", "follow", "send", "intro",
+            "connect"
+        ]
+        var companyTokens: [String] = []
+        for index in (markerIndex + 1)..<words.count {
+            let lower = lowerWords[index]
+            if stopWords.contains(lower) { break }
+            if isLikelyCompanyToken(words[index]) || lower == "and" {
+                companyTokens.append(words[index])
+                if companyTokens.count == 5 { break }
+            } else if !companyTokens.isEmpty {
+                break
+            }
+        }
+
+        return companyTokens.isEmpty ? nil : companyTokens.joined(separator: " ")
+    }
+
+    static func extractRole(from words: [String], lowerWords: [String]) -> String? {
+        let roleTerms: Set<String> = [
+            "founder", "cofounder", "co-founder", "ceo", "cto", "cfo", "coo",
+            "partner", "investor", "angel", "director", "manager", "vp",
+            "president", "lead", "head", "operator", "builder"
+        ]
+
+        guard let roleIndex = lowerWords.firstIndex(where: { roleTerms.contains($0) }) else {
+            return nil
+        }
+
+        var roleTokens = [words[roleIndex]]
+        if roleIndex > 0, ["co", "cofounder", "co-founder"].contains(lowerWords[roleIndex - 1]) {
+            roleTokens.insert(words[roleIndex - 1], at: 0)
+        }
+        if roleIndex < words.count - 2, lowerWords[roleIndex + 1] == "and", roleTerms.contains(lowerWords[roleIndex + 2]) {
+            roleTokens.append(words[roleIndex + 1])
+            roleTokens.append(words[roleIndex + 2])
+        }
+
+        return roleTokens.joined(separator: " ")
+    }
+
+    static func extractLiveContext(from text: String) -> String? {
+        let lower = text.lowercased()
+        let contextMarkers = [
+            "building", "launching", "raising", "fundraising", "hiring",
+            "closing", "looking for", "working on", "needs", "interested in",
+            "talked about", "discussed"
+        ]
+
+        guard let marker = contextMarkers.first(where: { lower.contains($0) }),
+              let range = lower.range(of: marker) else {
+            return nil
+        }
+
+        return String(text[range.lowerBound...])
+    }
+
+    static func extractFollowUp(from text: String) -> String? {
+        let lower = text.lowercased()
+        let followUpMarkers = [
+            "follow up", "send", "intro", "introduce", "connect", "email",
+            "remind", "share", "promised", "next week", "tomorrow"
+        ]
+
+        guard followUpMarkers.contains(where: { lower.contains($0) }) else {
+            return nil
+        }
+
+        return text
+    }
+
+    static func extractPersonalDetail(from text: String) -> String? {
+        let lower = text.lowercased()
+        let personalMarkers = [
+            "lives in", "based in", "likes", "loves", "family", "kids",
+            "daughter", "son", "wife", "husband", "partner", "hobby",
+            "enjoys", "from"
+        ]
+
+        guard personalMarkers.contains(where: { lower.contains($0) }) else {
+            return nil
+        }
+
+        return text
+    }
+
+    static func extractTags(from text: String, role: String?) -> [String] {
+        let lower = text.lowercased()
+        let roleLower = role?.lowercased() ?? ""
+        var tags: [String] = []
+
+        if roleLower.contains("founder") || lower.contains("founder") { tags.append("Founder") }
+        if roleLower.contains("investor") || roleLower.contains("partner") || lower.contains("investor") { tags.append("Investor") }
+        if roleLower.contains("ceo") || roleLower.contains("vp") || lower.contains("exec") { tags.append("Exec") }
+        if lower.contains("health") || lower.contains("medtech") { tags.append("Healthtech") }
+        if lower.contains("ai") || lower.contains("machine learning") { tags.append("AI") }
+        if lower.contains("seed") { tags.append("Seed") }
+        if lower.contains("series a") { tags.append("Series A") }
+        if lower.contains("series b") { tags.append("Series B") }
+        if extractFollowUp(from: text) != nil { tags.append("Follow-up") }
+
+        return tags
+    }
+
+    static func isLikelyNameToken(_ token: String) -> Bool {
+        guard let first = token.first else { return false }
+        return first.isUppercase && token.dropFirst().allSatisfy { $0.isLetter || $0 == "-" || $0 == "'" }
+    }
+
+    static func isNameParticle(_ token: String) -> Bool {
+        ["da", "de", "del", "der", "di", "la", "le", "van", "von"].contains(token)
+    }
+
+    static func isLikelyCompanyToken(_ token: String) -> Bool {
+        guard let first = token.first else { return false }
+        let corporateSuffixes = ["inc", "llc", "labs", "ventures", "capital", "studio", "systems", "ai"]
+        return first.isUppercase || corporateSuffixes.contains(token.lowercased())
+    }
+}
+
+private extension Array where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
+}
+
+#if canImport(FoundationModels)
+@Generable(description: "Structured person information extracted from a short relationship-capture transcript")
+private struct PersonExtractionSchema {
+    @Guide(description: "Full name of the person, excluding verbs and punctuation. Empty if no name is present.")
+    var name: String
+
+    @Guide(description: "Company, fund, school, or organization. Empty if unknown.")
+    var company: String
+
+    @Guide(description: "Role or title, such as Founder, CEO, Partner, VP Product. Empty if unknown.")
+    var role: String
+
+    @Guide(description: "Concise summary of the timely context or reason this person matters now. Empty if unknown.")
+    var liveContext: String
+
+    @Guide(description: "Promised next action, open loop, reminder, intro, or message to send. Empty if unknown.")
+    var followUp: String
+
+    @Guide(description: "Personal memorable detail such as interests, family, location, or preferences. Empty if unknown.")
+    var personalDetail: String
+
+    @Guide(description: "Three to six concise tags for relationship type, industry, stage, or follow-up status.")
+    var tags: [String]
+
+    var extractedPersonData: ExtractedPersonData {
+        ExtractedPersonData(
+            name: name,
+            company: company,
+            role: role,
+            liveContext: liveContext,
+            followUp: followUp,
+            personalDetail: personalDetail,
+            tags: tags
+        )
+    }
+}
+#endif
