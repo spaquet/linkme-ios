@@ -8,7 +8,6 @@ struct PeopleView: View {
     @State private var searchText = ""
     @State private var selectedFilter = "All"
     @State private var selectedSort = PersonSortOption.capturedRecent
-    @State private var showSortSheet = false
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
 
@@ -116,7 +115,21 @@ struct PeopleView: View {
 
                     Spacer()
 
-                    Button(action: { showSortSheet = true }) {
+                    Menu {
+                        ForEach(PersonSortOption.allCases, id: \.id) { option in
+                            Button(action: { selectedSort = option }) {
+                                HStack(spacing: 8) {
+                                    Text(option.rawValue)
+                                        .font(.system(size: 15, weight: .semibold, design: .default))
+
+                                    if selectedSort == option {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 13, weight: .semibold))
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s600)
@@ -125,6 +138,7 @@ struct PeopleView: View {
                             .cornerRadius(12)
                             .border(LinkMeColors.s200, width: 1)
                     }
+                    .menuActionDismissal(.immediate)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -250,9 +264,6 @@ struct PeopleView: View {
         }
         .onChange(of: navigationManager.navigationPath.count) { _, _ in
             loadPeople()
-        }
-        .sheet(isPresented: $showSortSheet) {
-            SortMenuSheet(selectedSort: $selectedSort, onSort: { _ in })
         }
     }
 
