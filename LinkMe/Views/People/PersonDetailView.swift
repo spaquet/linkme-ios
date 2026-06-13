@@ -124,7 +124,7 @@ struct PersonDetailView: View {
 
                             // Identity section
                             VStack(spacing: 8) {
-                            Avatar(name: person.name, size: 80, ring: true)
+                            Avatar(name: person.name, size: 80, ring: true, initials: person.initials)
 
                             VStack(spacing: 1) {
                                 Text(person.name)
@@ -371,7 +371,7 @@ struct PersonDetailView: View {
                                                     navigationManager.navigationPath.append(sharedPeople[index])
                                                 }) {
                                                     HStack(alignment: .center, spacing: 11) {
-                                                        Avatar(name: sharedPeople[index].name, size: 36)
+                                                        Avatar(name: sharedPeople[index].name, size: 36, initials: sharedPeople[index].initials)
 
                                                         VStack(alignment: .leading, spacing: 2) {
                                                             Text(sharedPeople[index].name)

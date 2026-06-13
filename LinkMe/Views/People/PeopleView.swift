@@ -210,7 +210,7 @@ struct PeopleView: View {
                                     navigationManager.openPersonDetail(people[index])
                                 }) {
                                     HStack(spacing: 11) {
-                                        Avatar(name: people[index].name, size: 42)
+                                        Avatar(name: people[index].name, size: 42, initials: people[index].initials)
 
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(people[index].name)
