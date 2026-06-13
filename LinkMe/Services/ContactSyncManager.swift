@@ -80,18 +80,19 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
-    func sync() async {
-        guard isEnabled else {
-            state = .off
+    nonisolated func sync() async {
+        let isEnabledSnapshot = await MainActor.run { self.isEnabled }
+        guard isEnabledSnapshot else {
+            await MainActor.run { self.state = .off }
             return
         }
 
-        state = .syncing
+        await MainActor.run { self.state = .syncing }
 
         do {
             let authorized = try await requestAccessIfNeeded()
             guard authorized else {
-                state = .denied
+                await MainActor.run { self.state = .denied }
                 return
             }
 
@@ -116,10 +117,15 @@ final class ContactSyncManager: ObservableObject {
             DatabaseManager.shared.deletePlaceholderContactPeople(excluding: validContactIdentifiers)
             nextStats.exported = await exportLinkedPeople(validContactIdentifiers: validContactIdentifiers)
             nextStats.stored = DatabaseManager.shared.fetchPeople().filter { $0.appleContactIdentifier != nil }.count
-            stats = nextStats
-            state = .synced
+
+            await MainActor.run {
+                self.stats = nextStats
+                self.state = .synced
+            }
         } catch {
-            state = .failed(error.localizedDescription)
+            await MainActor.run {
+                self.state = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -144,6 +150,9 @@ final class ContactSyncManager: ObservableObject {
                 }
 
                 person.name = Self.displayName(for: contact)
+                let givenInitial = contact.givenName.prefix(1).uppercased()
+                let familyInitial = contact.familyName.prefix(1).uppercased()
+                person.initials = (givenInitial + familyInitial).isEmpty ? PersonModel.computeInitials(person.name) : (givenInitial + familyInitial)
                 person.company = contact.organizationName
                 person.role = contact.jobTitle
                 person.appleContactIdentifier = contact.identifier
@@ -159,11 +168,13 @@ final class ContactSyncManager: ObservableObject {
         }.value
     }
 
-    private func requestAccessIfNeeded() async throws -> Bool {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
+    private nonisolated func requestAccessIfNeeded() async throws -> Bool {
+        let status = CNContactStore.authorizationStatus(for: .contacts)
+        switch status {
         case .authorized, .limited:
             return true
         case .notDetermined:
+            let store = CNContactStore()
             return try await store.requestAccess(for: .contacts)
         case .denied, .restricted:
             return false

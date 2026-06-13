@@ -272,12 +272,6 @@ struct PeopleView: View {
         }
         .onAppear {
             reloadPeople()
-            Task {
-                if contactSync.isEnabled {
-                    await contactSync.sync()
-                    reloadPeople()
-                }
-            }
         }
         .onChange(of: contactSync.state) { _, state in
             if state == .synced {

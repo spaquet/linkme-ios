@@ -38,7 +38,7 @@ struct PersonModel: Identifiable, Hashable {
         self.isFavorite = false
     }
 
-    static func computeInitials(_ name: String) -> String {
+    nonisolated static func computeInitials(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         let words = trimmed.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
 
@@ -61,7 +61,7 @@ struct PersonModel: Identifiable, Hashable {
         return (firstInitial + lastInitial).uppercased()
     }
 
-    private static func removeParticles(from lastName: String) -> String {
+    private nonisolated static func removeParticles(from lastName: String) -> String {
         let particles = ["d'", "de ", "du ", "la ", "le ", "van ", "von ", "von d'"]
         let lowerName = lastName.lowercased()
 

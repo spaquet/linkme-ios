@@ -294,6 +294,25 @@ class DatabaseManager {
             apple_contact_snapshot_json = excluded.apple_contact_snapshot_json
         """
 
+        print("📋 Upsert \(person.name):")
+        print("  1. id=\(person.id)")
+        print("  2. name=\(person.name)")
+        print("  3. company=\(person.company)")
+        print("  4. role=\(person.role)")
+        print("  5. tone=\(person.tone)")
+        print("  6. initials=\(person.initials)")
+        print("  7. captured_at=\(person.capturedAt.timeIntervalSince1970) (Date: \(person.capturedAt))")
+        print("  8. last_contact=\(person.lastContact?.timeIntervalSince1970 ?? -1) (Date: \(person.lastContact?.description ?? "nil"))")
+        print("  9. is_favorite=\(person.isFavorite ? 1 : 0)")
+        print("  10. context=\(person.context)")
+        print("  11. personal=\(person.personal)")
+        print("  12. followup=\(person.followup)")
+        print("  13. tags=\(encodeTags(person.tags))")
+        print("  14. apple_contact_identifier=\(person.appleContactIdentifier ?? "nil")")
+        print("  15. apple_contact_last_synced_at=\(person.appleContactLastSyncedAt?.timeIntervalSince1970 ?? -1)")
+        print("  16. apple_contact_sync_checksum=\(person.appleContactSyncChecksum ?? "nil")")
+        print("  17. apple_contact_snapshot_json=\(person.appleContactSnapshotJson?.prefix(50) ?? "nil")")
+
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
             bindText(statement, 1, person.id)
@@ -302,7 +321,7 @@ class DatabaseManager {
             bindText(statement, 4, person.role)
             bindText(statement, 5, person.tone)
             bindText(statement, 6, person.initials)
-            sqlite3_bind_int64(statement, 7, Int64(person.capturedAt.timeIntervalSince1970))
+            bindDate(statement, 7, person.capturedAt)
             bindDate(statement, 8, person.lastContact)
             sqlite3_bind_int(statement, 9, person.isFavorite ? 1 : 0)
             bindText(statement, 10, person.context)
@@ -313,9 +332,18 @@ class DatabaseManager {
             bindDate(statement, 15, person.appleContactLastSyncedAt)
             bindText(statement, 16, person.appleContactSyncChecksum)
             bindText(statement, 17, person.appleContactSnapshotJson)
-            if sqlite3_step(statement) == SQLITE_DONE {
+            print("  ✓ All bindings done, executing...")
+            let stepResult = sqlite3_step(statement)
+            if stepResult == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
+                print("✓ Person upserted: \(person.name)")
+            } else {
+                let errMsg = String(cString: sqlite3_errmsg(db))
+                print("✗ Upsert failed for \(person.name): \(errMsg)")
             }
+        } else {
+            let errMsg = String(cString: sqlite3_errmsg(db))
+            print("✗ Prepare failed for upsert: \(errMsg)")
         }
         sqlite3_finalize(statement)
     }
@@ -756,7 +784,9 @@ class DatabaseManager {
             return
         }
 
-        sqlite3_bind_int64(statement, index, Int64(value.timeIntervalSince1970))
+        let formatter = ISO8601DateFormatter()
+        let dateString = formatter.string(from: value)
+        bindText(statement, index, dateString)
     }
 
     private func columnText(_ statement: OpaquePointer?, _ index: Int32) -> String? {
