@@ -196,13 +196,37 @@ class DatabaseManager {
         ON cards(is_default, deleted_at);
         """
 
-        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault] {
+        let peopleFTS = """
+        CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, content=people, content_rowid=id);
+        """
+
+        let peopleFTSTriggerInsert = """
+        CREATE TRIGGER IF NOT EXISTS people_fts_insert AFTER INSERT ON people BEGIN
+          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.id, new.name, new.company, new.role);
+        END;
+        """
+
+        let peopleFTSTriggerDelete = """
+        CREATE TRIGGER IF NOT EXISTS people_fts_delete AFTER DELETE ON people BEGIN
+          DELETE FROM people_fts WHERE rowid = old.id;
+        END;
+        """
+
+        let peopleFTSTriggerUpdate = """
+        CREATE TRIGGER IF NOT EXISTS people_fts_update AFTER UPDATE ON people BEGIN
+          DELETE FROM people_fts WHERE rowid = old.id;
+          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.id, new.name, new.company, new.role);
+        END;
+        """
+
+        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault, peopleFTS, peopleFTSTriggerInsert, peopleFTSTriggerDelete, peopleFTSTriggerUpdate] {
             executeSQL(createTableSQL)
         }
 
         migratePeopleSchema()
         migrateCardsSchema()
         backfillPersonTags()
+        rebuildPeopleFTS()
     }
 
     func executeSQL(_ sql: String) {
@@ -460,17 +484,9 @@ class DatabaseManager {
 
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedSearch.isEmpty {
-            let searchValue = "%\(trimmedSearch.lowercased())%"
-            predicates.append("""
-            (
-                lower(p.name) LIKE ?
-                OR lower(coalesce(p.company, '')) LIKE ?
-                OR lower(coalesce(p.role, '')) LIKE ?
-                OR lower(coalesce(p.tags, '')) LIKE ?
-                OR lower(coalesce(p.apple_contact_snapshot_json, '')) LIKE ?
-            )
-            """)
-            bindValues.append(contentsOf: Array(repeating: searchValue, count: 5))
+            joins.append("INNER JOIN people_fts fts ON fts.rowid = p.id")
+            predicates.append("people_fts MATCH ?")
+            bindValues.append(trimmedSearch)
         }
 
         return (
@@ -601,6 +617,12 @@ class DatabaseManager {
         }
 
         sqlite3_finalize(statement)
+    }
+
+    private func rebuildPeopleFTS() {
+        executeSQL("DELETE FROM people_fts;")
+        let sql = "INSERT INTO people_fts(rowid, name, company, role) SELECT id, name, company, role FROM people WHERE deleted_at IS NULL;"
+        executeSQL(sql)
     }
 
     private func replaceTags(for personId: String, tags: [String]) {
@@ -959,6 +981,25 @@ class DatabaseManager {
             }
             sqlite3_finalize(statement)
         }
+    }
+
+    func fetchPeopleAsync(
+        searchText: String,
+        matchingTags tags: [String] = [],
+        partialTagMatch: Bool = false,
+        sortedBy sortOption: PersonSortOption = .capturedRecent,
+        limit: Int,
+        offset: Int
+    ) async -> [PersonModel] {
+        return await Task(priority: .userInitiated) {
+            fetchPeople(searchText: searchText, matchingTags: tags, partialTagMatch: partialTagMatch, sortedBy: sortOption, limit: limit, offset: offset)
+        }.value
+    }
+
+    func countPeopleAsync(searchText: String, matchingTags tags: [String] = [], partialTagMatch: Bool = false) async -> Int {
+        return await Task(priority: .userInitiated) {
+            countPeople(searchText: searchText, matchingTags: tags, partialTagMatch: partialTagMatch)
+        }.value
     }
 
     deinit {

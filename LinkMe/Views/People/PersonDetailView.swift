@@ -456,11 +456,17 @@ struct PersonDetailView: View {
         }
         }
         .onAppear {
-            threads = MockDataManager.getThreadsForPerson(person.id)
-            let shared = person.shared.compactMap { name in
-                MockDataManager.mockPeople.first { $0.name == name }
+            Task.detached(priority: .userInitiated) { [person] in
+                let loadedThreads = MockDataManager.getThreadsForPerson(person.id)
+                let shared = person.shared.compactMap { name in
+                    MockDataManager.mockPeople.first { $0.name == name }
+                }
+
+                await MainActor.run {
+                    threads = loadedThreads
+                    sharedPeople = shared
+                }
             }
-            sharedPeople = shared
         }
         .sheet(isPresented: $isShowingEditSheet) {
             PersonEditView(person: person) { updatedPerson in

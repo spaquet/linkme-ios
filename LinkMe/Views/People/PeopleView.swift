@@ -7,11 +7,14 @@ struct PeopleView: View {
     @State private var people: [PersonModel] = []
     @State private var totalPeopleCount = 0
     @State private var searchText = ""
+    @State private var debouncedSearchText = ""
     @State private var selectedFilter = "All"
     @State private var selectedSort = PersonSortOption.capturedRecent
     @State private var isLoadingPeople = false
     @State private var hasMorePeople = true
     @FocusState private var isSearchFocused: Bool
+    @State private var scrollPosition: String?
+    private let searchDebounceDelay: TimeInterval = 0.3
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
     private let pageSize = 40
@@ -201,7 +204,7 @@ struct PeopleView: View {
                     .padding(.bottom, LinkMeLayout.tabBarHeight)
                 } else {
                     ScrollView {
-                        VStack(spacing: 0) {
+                        LazyVStack(spacing: 0) {
                             ForEach(people.indices, id: \.self) { index in
                                 Button(action: {
                                     navigationManager.openPersonDetail(people[index])
@@ -235,6 +238,7 @@ struct PeopleView: View {
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
                                     .background(LinkMeColors.canvas)
+                                    .id("person_\(people[index].id)")
                                 }
                                 .onAppear {
                                     loadMorePeopleIfNeeded(currentIndex: index)
@@ -265,6 +269,7 @@ struct PeopleView: View {
                         .padding(.vertical, 10)
                         .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                     }
+                    .scrollPosition(id: $scrollPosition)
                 }
             }
         }
@@ -282,9 +287,6 @@ struct PeopleView: View {
                 reloadPeople()
             }
         }
-        .onChange(of: navigationManager.navigationPath.count) { _, _ in
-            reloadPeople()
-        }
         .onChange(of: selectedFilter) { _, _ in
             reloadPeople()
         }
@@ -292,6 +294,14 @@ struct PeopleView: View {
             reloadPeople()
         }
         .onChange(of: searchText) { _, _ in
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(searchDebounceDelay * 1_000_000_000))
+                if searchText == debouncedSearchText { return }
+                debouncedSearchText = searchText
+                reloadPeople()
+            }
+        }
+        .onChange(of: debouncedSearchText) { _, _ in
             reloadPeople()
         }
     }
@@ -395,31 +405,35 @@ struct PeopleView: View {
         isLoadingPeople = true
         let offset = reset ? 0 : people.count
         let query = peopleQuery()
-        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSearch = debouncedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let nextPeople = DatabaseManager.shared.fetchPeople(
-            searchText: trimmedSearch,
-            matchingTags: query.tags,
-            partialTagMatch: query.partialMatch,
-            sortedBy: selectedSort,
-            limit: pageSize,
-            offset: offset
-        )
-        let count = DatabaseManager.shared.countPeople(
-            searchText: trimmedSearch,
-            matchingTags: query.tags,
-            partialTagMatch: query.partialMatch
-        )
+        Task {
+            let nextPeople = await DatabaseManager.shared.fetchPeopleAsync(
+                searchText: trimmedSearch,
+                matchingTags: query.tags,
+                partialTagMatch: query.partialMatch,
+                sortedBy: selectedSort,
+                limit: pageSize,
+                offset: offset
+            )
+            let count = await DatabaseManager.shared.countPeopleAsync(
+                searchText: trimmedSearch,
+                matchingTags: query.tags,
+                partialTagMatch: query.partialMatch
+            )
 
-        if reset {
-            people = nextPeople
-        } else {
-            people.append(contentsOf: nextPeople)
+            await MainActor.run {
+                if reset {
+                    people = nextPeople
+                } else {
+                    people.append(contentsOf: nextPeople)
+                }
+
+                totalPeopleCount = count
+                hasMorePeople = people.count < count
+                isLoadingPeople = false
+            }
         }
-
-        totalPeopleCount = count
-        hasMorePeople = people.count < count
-        isLoadingPeople = false
     }
 
     private func peopleQuery() -> (tags: [String], partialMatch: Bool) {
