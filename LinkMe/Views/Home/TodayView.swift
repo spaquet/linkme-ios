@@ -286,7 +286,7 @@ struct TodayView: View {
                                                     }) {
                                                         Card(padding: 12) {
                                                             VStack(spacing: 8) {
-                                                                Avatar(name: person.name, size: 48, tone: person.tone)
+                                                                Avatar(name: person.name, size: 48, tone: person.tone, initials: person.initials)
 
                                                                 VStack(spacing: 2) {
                                                                     Text(person.name.split(separator: " ").first.map(String.init) ?? person.name)
