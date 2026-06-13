@@ -434,19 +434,15 @@ class DatabaseManager {
                 var person = PersonModel(id: id, name: name, company: company, role: role)
                 person.tone = columnText(statement, 4) ?? "teal"
                 person.initials = columnText(statement, 5) ?? PersonModel.computeInitials(name)
-                person.capturedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 6)))
-                if sqlite3_column_type(statement, 7) != SQLITE_NULL {
-                    person.lastContact = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 7)))
-                }
+                person.capturedAt = parseDate(columnText(statement, 6)) ?? Date()
+                person.lastContact = parseDate(columnText(statement, 7))
                 person.isFavorite = sqlite3_column_int(statement, 8) == 1
                 person.context = columnText(statement, 9) ?? ""
                 person.personal = columnText(statement, 10) ?? ""
                 person.followup = columnText(statement, 11) ?? ""
                 person.tags = decodeTags(columnText(statement, 12))
                 person.appleContactIdentifier = columnText(statement, 13)
-                if sqlite3_column_type(statement, 14) != SQLITE_NULL {
-                    person.appleContactLastSyncedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 14)))
-                }
+                person.appleContactLastSyncedAt = parseDate(columnText(statement, 14))
                 person.appleContactSyncChecksum = columnText(statement, 15)
                 person.appleContactSnapshotJson = columnText(statement, 16)
                 people.append(person)
@@ -757,19 +753,15 @@ class DatabaseManager {
         var person = PersonModel(id: id, name: name, company: company, role: role)
         person.tone = columnText(statement, 4) ?? "teal"
         person.initials = columnText(statement, 5) ?? PersonModel.computeInitials(name)
-        person.capturedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 6)))
-        if sqlite3_column_type(statement, 7) != SQLITE_NULL {
-            person.lastContact = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 7)))
-        }
+        person.capturedAt = parseDate(columnText(statement, 6)) ?? Date()
+        person.lastContact = parseDate(columnText(statement, 7))
         person.isFavorite = sqlite3_column_int(statement, 8) == 1
         person.context = columnText(statement, 9) ?? ""
         person.personal = columnText(statement, 10) ?? ""
         person.followup = columnText(statement, 11) ?? ""
         person.tags = decodeTags(columnText(statement, 12))
         person.appleContactIdentifier = columnText(statement, 13)
-        if sqlite3_column_type(statement, 14) != SQLITE_NULL {
-            person.appleContactLastSyncedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 14)))
-        }
+        person.appleContactLastSyncedAt = parseDate(columnText(statement, 14))
         person.appleContactSyncChecksum = columnText(statement, 15)
         person.appleContactSnapshotJson = columnText(statement, 16)
         return person
@@ -817,6 +809,12 @@ class DatabaseManager {
         let formatter = ISO8601DateFormatter()
         let dateString = formatter.string(from: value)
         bindText(statement, index, dateString)
+    }
+
+    private func parseDate(_ dateString: String?) -> Date? {
+        guard let dateString = dateString, !dateString.isEmpty else { return nil }
+        let formatter = ISO8601DateFormatter()
+        return formatter.date(from: dateString)
     }
 
     private func columnText(_ statement: OpaquePointer?, _ index: Int32) -> String? {
