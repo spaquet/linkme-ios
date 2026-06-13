@@ -198,25 +198,25 @@ class DatabaseManager {
         """
 
         let peopleFTS = """
-        CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, content=people, content_rowid=id);
+        CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, content=people, content_rowid=rowid);
         """
 
         let peopleFTSTriggerInsert = """
         CREATE TRIGGER IF NOT EXISTS people_fts_insert AFTER INSERT ON people BEGIN
-          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.id, new.name, new.company, new.role);
+          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.rowid, new.name, new.company, new.role);
         END;
         """
 
         let peopleFTSTriggerDelete = """
         CREATE TRIGGER IF NOT EXISTS people_fts_delete AFTER DELETE ON people BEGIN
-          DELETE FROM people_fts WHERE rowid = old.id;
+          DELETE FROM people_fts WHERE rowid = old.rowid;
         END;
         """
 
         let peopleFTSTriggerUpdate = """
         CREATE TRIGGER IF NOT EXISTS people_fts_update AFTER UPDATE ON people BEGIN
-          DELETE FROM people_fts WHERE rowid = old.id;
-          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.id, new.name, new.company, new.role);
+          DELETE FROM people_fts WHERE rowid = old.rowid;
+          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.rowid, new.name, new.company, new.role);
         END;
         """
 
@@ -274,25 +274,37 @@ class DatabaseManager {
     }
 
     func upsertPerson(_ person: PersonModel) {
-        let sql = """
-        INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            company = excluded.company,
-            role = excluded.role,
-            tone = excluded.tone,
-            initials = excluded.initials,
-            last_contact = excluded.last_contact,
-            context = excluded.context,
-            personal = excluded.personal,
-            followup = excluded.followup,
-            tags = excluded.tags,
-            apple_contact_identifier = excluded.apple_contact_identifier,
-            apple_contact_last_synced_at = excluded.apple_contact_last_synced_at,
-            apple_contact_sync_checksum = excluded.apple_contact_sync_checksum,
-            apple_contact_snapshot_json = excluded.apple_contact_snapshot_json
-        """
+        let checkExistsSql = "SELECT 1 FROM people WHERE id = ?"
+        var checkStatement: OpaquePointer?
+        var personExists = false
+
+        if sqlite3_prepare_v2(db, checkExistsSql, -1, &checkStatement, nil) == SQLITE_OK {
+            bindText(checkStatement, 1, person.id)
+            personExists = sqlite3_step(checkStatement) == SQLITE_ROW
+        }
+        sqlite3_finalize(checkStatement)
+
+        let sql: String
+        if personExists {
+            sql = """
+            UPDATE people SET
+                name = ?, company = ?, role = ?, tone = ?, initials = ?,
+                last_contact = ?, context = ?, personal = ?, followup = ?,
+                tags = ?, apple_contact_identifier = ?,
+                apple_contact_last_synced_at = ?, apple_contact_sync_checksum = ?, apple_contact_snapshot_json = ?
+            WHERE id = ?
+            """
+        } else {
+            sql = """
+            INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+        }
+
+        let formatter = ISO8601DateFormatter()
+        let capturedAtStr = formatter.string(from: person.capturedAt)
+        let lastContactStr = person.lastContact.map { formatter.string(from: $0) } ?? "nil"
+        let lastSyncedStr = person.appleContactLastSyncedAt.map { formatter.string(from: $0) } ?? "nil"
 
         print("📋 Upsert \(person.name):")
         print("  1. id=\(person.id)")
@@ -301,37 +313,55 @@ class DatabaseManager {
         print("  4. role=\(person.role)")
         print("  5. tone=\(person.tone)")
         print("  6. initials=\(person.initials)")
-        print("  7. captured_at=\(person.capturedAt.timeIntervalSince1970) (Date: \(person.capturedAt))")
-        print("  8. last_contact=\(person.lastContact?.timeIntervalSince1970 ?? -1) (Date: \(person.lastContact?.description ?? "nil"))")
+        print("  7. captured_at=\(capturedAtStr)")
+        print("  8. last_contact=\(lastContactStr)")
         print("  9. is_favorite=\(person.isFavorite ? 1 : 0)")
         print("  10. context=\(person.context)")
         print("  11. personal=\(person.personal)")
         print("  12. followup=\(person.followup)")
         print("  13. tags=\(encodeTags(person.tags))")
         print("  14. apple_contact_identifier=\(person.appleContactIdentifier ?? "nil")")
-        print("  15. apple_contact_last_synced_at=\(person.appleContactLastSyncedAt?.timeIntervalSince1970 ?? -1)")
+        print("  15. apple_contact_last_synced_at=\(lastSyncedStr)")
         print("  16. apple_contact_sync_checksum=\(person.appleContactSyncChecksum ?? "nil")")
         print("  17. apple_contact_snapshot_json=\(person.appleContactSnapshotJson?.prefix(50) ?? "nil")")
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-            bindText(statement, 1, person.id)
-            bindText(statement, 2, person.name)
-            bindText(statement, 3, person.company)
-            bindText(statement, 4, person.role)
-            bindText(statement, 5, person.tone)
-            bindText(statement, 6, person.initials)
-            bindDate(statement, 7, person.capturedAt)
-            bindDate(statement, 8, person.lastContact)
-            sqlite3_bind_int(statement, 9, person.isFavorite ? 1 : 0)
-            bindText(statement, 10, person.context)
-            bindText(statement, 11, person.personal)
-            bindText(statement, 12, person.followup)
-            bindText(statement, 13, encodeTags(person.tags))
-            bindText(statement, 14, person.appleContactIdentifier)
-            bindDate(statement, 15, person.appleContactLastSyncedAt)
-            bindText(statement, 16, person.appleContactSyncChecksum)
-            bindText(statement, 17, person.appleContactSnapshotJson)
+            if personExists {
+                bindText(statement, 1, person.name)
+                bindText(statement, 2, person.company)
+                bindText(statement, 3, person.role)
+                bindText(statement, 4, person.tone)
+                bindText(statement, 5, person.initials)
+                bindDate(statement, 6, person.lastContact)
+                bindText(statement, 7, person.context)
+                bindText(statement, 8, person.personal)
+                bindText(statement, 9, person.followup)
+                bindText(statement, 10, encodeTags(person.tags))
+                bindText(statement, 11, person.appleContactIdentifier)
+                bindDate(statement, 12, person.appleContactLastSyncedAt)
+                bindText(statement, 13, person.appleContactSyncChecksum)
+                bindText(statement, 14, person.appleContactSnapshotJson)
+                bindText(statement, 15, person.id)
+            } else {
+                bindText(statement, 1, person.id)
+                bindText(statement, 2, person.name)
+                bindText(statement, 3, person.company)
+                bindText(statement, 4, person.role)
+                bindText(statement, 5, person.tone)
+                bindText(statement, 6, person.initials)
+                bindDate(statement, 7, person.capturedAt)
+                bindDate(statement, 8, person.lastContact)
+                sqlite3_bind_int(statement, 9, person.isFavorite ? 1 : 0)
+                bindText(statement, 10, person.context)
+                bindText(statement, 11, person.personal)
+                bindText(statement, 12, person.followup)
+                bindText(statement, 13, encodeTags(person.tags))
+                bindText(statement, 14, person.appleContactIdentifier)
+                bindDate(statement, 15, person.appleContactLastSyncedAt)
+                bindText(statement, 16, person.appleContactSyncChecksum)
+                bindText(statement, 17, person.appleContactSnapshotJson)
+            }
             print("  ✓ All bindings done, executing...")
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
