@@ -301,29 +301,6 @@ class DatabaseManager {
             """
         }
 
-        let formatter = ISO8601DateFormatter()
-        let capturedAtStr = formatter.string(from: person.capturedAt)
-        let lastContactStr = person.lastContact.map { formatter.string(from: $0) } ?? "nil"
-        let lastSyncedStr = person.appleContactLastSyncedAt.map { formatter.string(from: $0) } ?? "nil"
-
-        print("📋 Upsert \(person.name):")
-        print("  1. id=\(person.id)")
-        print("  2. name=\(person.name)")
-        print("  3. company=\(person.company)")
-        print("  4. role=\(person.role)")
-        print("  5. tone=\(person.tone)")
-        print("  6. initials=\(person.initials)")
-        print("  7. captured_at=\(capturedAtStr)")
-        print("  8. last_contact=\(lastContactStr)")
-        print("  9. is_favorite=\(person.isFavorite ? 1 : 0)")
-        print("  10. context=\(person.context)")
-        print("  11. personal=\(person.personal)")
-        print("  12. followup=\(person.followup)")
-        print("  13. tags=\(encodeTags(person.tags))")
-        print("  14. apple_contact_identifier=\(person.appleContactIdentifier ?? "nil")")
-        print("  15. apple_contact_last_synced_at=\(lastSyncedStr)")
-        print("  16. apple_contact_sync_checksum=\(person.appleContactSyncChecksum ?? "nil")")
-        print("  17. apple_contact_snapshot_json=\(person.appleContactSnapshotJson?.prefix(50) ?? "nil")")
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
@@ -362,18 +339,10 @@ class DatabaseManager {
                 bindText(statement, 16, person.appleContactSyncChecksum)
                 bindText(statement, 17, person.appleContactSnapshotJson)
             }
-            print("  ✓ All bindings done, executing...")
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
-                print("✓ Person upserted: \(person.name)")
-            } else {
-                let errMsg = String(cString: sqlite3_errmsg(db))
-                print("✗ Upsert failed for \(person.name): \(errMsg)")
             }
-        } else {
-            let errMsg = String(cString: sqlite3_errmsg(db))
-            print("✗ Prepare failed for upsert: \(errMsg)")
         }
         sqlite3_finalize(statement)
     }
