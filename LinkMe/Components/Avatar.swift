@@ -23,8 +23,10 @@ struct Avatar: View {
 
     private static func toneFor(_ name: String) -> String {
         let tones = ["teal", "slate", "amber", "indigo", "rose", "sky"]
-        let hash = name.utf8.reduce(0) { ($0 &* 31 &+ UInt($1)) }
-        return tones[Int(hash % UInt(tones.count))]
+        guard let firstChar = name.trimmingCharacters(in: .whitespaces).first?.uppercased().first?.asciiValue else {
+            return tones[0]
+        }
+        return tones[Int(firstChar % UInt8(tones.count))]
     }
 
     private func toneColors() -> (bg: Color, fg: Color) {
