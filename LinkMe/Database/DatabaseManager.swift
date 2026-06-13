@@ -70,7 +70,8 @@ class DatabaseManager {
             apple_contact_identifier TEXT,
             apple_contact_last_synced_at DATETIME,
             apple_contact_sync_checksum TEXT,
-            apple_contact_snapshot_json TEXT
+            apple_contact_snapshot_json TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         """
 
@@ -291,13 +292,14 @@ class DatabaseManager {
                 name = ?, company = ?, role = ?, tone = ?, initials = ?,
                 last_contact = ?, context = ?, personal = ?, followup = ?,
                 tags = ?, apple_contact_identifier = ?,
-                apple_contact_last_synced_at = ?, apple_contact_sync_checksum = ?, apple_contact_snapshot_json = ?
+                apple_contact_last_synced_at = ?, apple_contact_sync_checksum = ?, apple_contact_snapshot_json = ?,
+                updated_at = ?
             WHERE id = ?
             """
         } else {
             sql = """
-            INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
         }
 
@@ -319,7 +321,8 @@ class DatabaseManager {
                 bindDate(statement, 12, person.appleContactLastSyncedAt)
                 bindText(statement, 13, person.appleContactSyncChecksum)
                 bindText(statement, 14, person.appleContactSnapshotJson)
-                bindText(statement, 15, person.id)
+                bindDate(statement, 15, person.updatedAt)
+                bindText(statement, 16, person.id)
             } else {
                 bindText(statement, 1, person.id)
                 bindText(statement, 2, person.name)
@@ -338,6 +341,7 @@ class DatabaseManager {
                 bindDate(statement, 15, person.appleContactLastSyncedAt)
                 bindText(statement, 16, person.appleContactSyncChecksum)
                 bindText(statement, 17, person.appleContactSnapshotJson)
+                bindDate(statement, 18, person.updatedAt)
             }
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
@@ -382,7 +386,7 @@ class DatabaseManager {
 
     func fetchPeople() -> [PersonModel] {
         let sql = """
-        SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json
+        SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at
         FROM people
         WHERE deleted_at IS NULL
         ORDER BY captured_at DESC
@@ -412,6 +416,7 @@ class DatabaseManager {
                 person.tags = decodeTags(columnText(statement, 12))
                 person.appleContactIdentifier = columnText(statement, 13)
                 person.appleContactLastSyncedAt = parseDate(columnText(statement, 14))
+                person.updatedAt = parseDate(columnText(statement, 17)) ?? Date()
                 person.appleContactSyncChecksum = columnText(statement, 15)
                 person.appleContactSnapshotJson = columnText(statement, 16)
                 people.append(person)
@@ -431,7 +436,7 @@ class DatabaseManager {
     ) -> [PersonModel] {
         let query = peopleQueryParts(searchText: searchText, matchingTags: tags, partialTagMatch: partialTagMatch)
         let sql = """
-        SELECT DISTINCT p.id, p.name, p.company, p.role, p.tone, p.initials, p.captured_at, p.last_contact, p.is_favorite, p.context, p.personal, p.followup, p.tags, p.apple_contact_identifier, p.apple_contact_last_synced_at, p.apple_contact_sync_checksum, p.apple_contact_snapshot_json
+        SELECT DISTINCT p.id, p.name, p.company, p.role, p.tone, p.initials, p.captured_at, p.last_contact, p.is_favorite, p.context, p.personal, p.followup, p.tags, p.apple_contact_identifier, p.apple_contact_last_synced_at, p.apple_contact_sync_checksum, p.apple_contact_snapshot_json, p.updated_at
         FROM people p
         \(query.joinSQL)
         WHERE \(query.whereSQL)
@@ -599,6 +604,7 @@ class DatabaseManager {
         addColumnIfMissing(table: "people", column: "apple_contact_sync_checksum", definition: "TEXT")
         addColumnIfMissing(table: "people", column: "apple_contact_snapshot_json", definition: "TEXT")
         addColumnIfMissing(table: "people", column: "initials", definition: "TEXT DEFAULT ''")
+        addColumnIfMissing(table: "people", column: "updated_at", definition: "DATETIME")
         backfillInitials()
     }
 
@@ -733,6 +739,7 @@ class DatabaseManager {
         person.appleContactLastSyncedAt = parseDate(columnText(statement, 14))
         person.appleContactSyncChecksum = columnText(statement, 15)
         person.appleContactSnapshotJson = columnText(statement, 16)
+        person.updatedAt = parseDate(columnText(statement, 17)) ?? Date()
         return person
     }
 

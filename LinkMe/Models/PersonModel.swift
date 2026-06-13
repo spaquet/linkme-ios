@@ -8,6 +8,7 @@ struct PersonModel: Identifiable, Hashable {
     var tone: String // teal, slate, amber, indigo, rose, sky
     var initials: String
     var capturedAt: Date
+    var updatedAt: Date
     var lastContact: Date?
     var isFavorite: Bool
     var notes: [String] = []
@@ -35,6 +36,7 @@ struct PersonModel: Identifiable, Hashable {
         self.tone = "teal"
         self.initials = Self.computeInitials(name)
         self.capturedAt = Date()
+        self.updatedAt = Date()
         self.isFavorite = false
     }
 
