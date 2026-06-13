@@ -224,6 +224,15 @@ struct PrivacyView: View {
                             .cornerRadius(12)
                         }
                         .padding(.top, 24)
+
+                        VStack(spacing: 4) {
+                            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+                            let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+                            Text("v\(version) (\(build))")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(LinkMeColors.s400)
+                        }
+                        .padding(.top, 32)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 18)
