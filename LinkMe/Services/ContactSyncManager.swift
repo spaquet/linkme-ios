@@ -41,12 +41,20 @@ final class ContactSyncManager: ObservableObject {
 
     private let store = CNContactStore()
     private let enabledKey = "contactSyncEnabled"
+    private var changeHistoryTask: Task<Void, Never>?
+    private var debounceTask: Task<Void, Never>?
 
     private init() {
         let savedIsEnabled = UserDefaults.standard.bool(forKey: enabledKey)
         isEnabled = savedIsEnabled
         stats = ContactSyncStats()
         state = savedIsEnabled ? .needsPermission : .off
+
+        if savedIsEnabled {
+            changeHistoryTask = Task {
+                await listenToContactChanges()
+            }
+        }
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -55,11 +63,18 @@ final class ContactSyncManager: ObservableObject {
 
         guard enabled else {
             state = .off
+            changeHistoryTask?.cancel()
+            changeHistoryTask = nil
             return
         }
 
         Task {
             await sync()
+        }
+
+        changeHistoryTask?.cancel()
+        changeHistoryTask = Task {
+            await listenToContactChanges()
         }
     }
 
@@ -77,6 +92,50 @@ final class ContactSyncManager: ObservableObject {
     func forceResync() {
         Task {
             await sync()
+        }
+    }
+
+    private nonisolated func listenToContactChanges() async {
+        let notifications = NotificationCenter.default.notifications(named: .CNContactStoreDidChange)
+        for await _ in notifications {
+            let isEnabledSnapshot = await MainActor.run { self.isEnabled }
+            guard isEnabledSnapshot else { continue }
+
+            await MainActor.run {
+                self.debounceTask?.cancel()
+                self.debounceTask = Task {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    guard !Task.isCancelled else { return }
+                    await self.syncTrackedContacts()
+                }
+            }
+        }
+    }
+
+    private nonisolated func syncTrackedContacts() async {
+        do {
+            let trackedIds = await MainActor.run {
+                Set(DatabaseManager.shared.fetchPeople()
+                    .compactMap { $0.appleContactIdentifier })
+            }
+
+            let allContacts = try await fetchContacts()
+            let newOrChangedContacts = allContacts.filter { contact in
+                trackedIds.contains(contact.identifier) ||
+                !DatabaseManager.shared.fetchPeople()
+                    .contains { $0.appleContactIdentifier == contact.identifier }
+            }
+
+            guard !newOrChangedContacts.isEmpty else { return }
+
+            let (imported, updated) = await processBatch(newOrChangedContacts, lastSyncedAt: Date())
+
+            await MainActor.run {
+                self.stats.imported += imported
+                self.stats.updated += updated
+            }
+        } catch {
+            await MainActor.run { Task { await self.sync() } }
         }
     }
 
