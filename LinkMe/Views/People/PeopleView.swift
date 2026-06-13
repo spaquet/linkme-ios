@@ -266,7 +266,6 @@ struct PeopleView: View {
                         .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                     }
                     .scrollPosition(id: $scrollPosition)
-                    .contentMargins(.vertical, 200, for: .scrollContent)
                 }
             }
         }
