@@ -7,6 +7,7 @@ struct PrivacyView: View {
     @State private var cloudEnrichment = false
     @State private var lifeSignals = false
     @State private var siri = false
+    @State private var faceIDEnabled = false
     @State private var showResetConfirmation = false
 
     private var contactsBinding: Binding<Bool> {
@@ -147,6 +148,23 @@ struct PrivacyView: View {
                             }
                         }
 
+                        // Security
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel("Security")
+
+                            Card(padding: 0) {
+                                VStack(spacing: 0) {
+                                    PrivacyRow(
+                                        icon: "faceid",
+                                        title: "Face ID",
+                                        detail: "Require Face ID to open the app.",
+                                        isToggled: $faceIDEnabled,
+                                        isLocked: false
+                                    )
+                                }
+                            }
+                        }
+
                         // What needs your permission
                         VStack(alignment: .leading, spacing: 10) {
                             SectionLabel("What needs your permission")
@@ -192,9 +210,25 @@ struct PrivacyView: View {
                                     )
 
                                     if contactSync.isEnabled {
-                                        ContactSyncStatusView(state: contactSync.state, stats: contactSync.stats)
-                                            .padding(.horizontal, 14)
-                                            .padding(.bottom, 14)
+                                        VStack(spacing: 12) {
+                                            ContactSyncStatusView(state: contactSync.state, stats: contactSync.stats)
+
+                                            Button(action: { contactSync.forceResync() }) {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "arrow.clockwise")
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                    Text("Force resync")
+                                                        .font(.system(size: 13, weight: .semibold, design: .default))
+                                                }
+                                                .frame(maxWidth: .infinity)
+                                                .padding(10)
+                                                .foregroundColor(LinkMeColors.t600)
+                                                .background(LinkMeColors.t50)
+                                                .cornerRadius(10)
+                                            }
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.bottom, 14)
                                     }
 
                                     Divider(inset: 63)
