@@ -640,19 +640,12 @@ struct LocationPickerSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Where are you?")
-                    .font(.system(size: 22, weight: .semibold, design: .default))
-                    .foregroundColor(LinkMeColors.ink)
-                Spacer()
-                Button(action: { isPresented = false }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(LinkMeColors.s500)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 20)
+            Text("Where are you?")
+                .font(.system(size: 22, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 20)
 
             VStack(spacing: 20) {
                 VStack(spacing: 12) {

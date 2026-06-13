@@ -420,6 +420,8 @@
 				INFOPLIST_KEY_NSContactsUsageDescription = "LinkMe syncs your iPhone contacts into your on-device people list";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkMe needs microphone access to capture voice notes about your connections";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkMe uses speech recognition to transcribe your voice notes";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkMe needs access to your location to help you remember where you are when meeting people.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "LinkMe needs access to your location to help you remember where you are when meeting people.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -457,6 +459,8 @@
 				INFOPLIST_KEY_NSContactsUsageDescription = "LinkMe syncs your iPhone contacts into your on-device people list";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "LinkMe needs microphone access to capture voice notes about your connections";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "LinkMe uses speech recognition to transcribe your voice notes";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LinkMe needs access to your location to help you remember where you are when meeting people.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "LinkMe needs access to your location to help you remember where you are when meeting people.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
