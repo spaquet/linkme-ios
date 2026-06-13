@@ -17,7 +17,7 @@ struct PeopleView: View {
     private let searchDebounceDelay: TimeInterval = 0.3
 
     private let filters = ["All", "Investors", "Founders", "Execs"]
-    private let pageSize = 40
+    private let pageSize = 100
 
     private func formatLastContact(_ date: Date?) -> String {
         guard let date = date else { return "Never" }
@@ -235,6 +235,7 @@ struct PeopleView: View {
                                         }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(height: 62)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
                                     .background(LinkMeColors.canvas)
@@ -242,11 +243,6 @@ struct PeopleView: View {
                                 }
                                 .onAppear {
                                     loadMorePeopleIfNeeded(currentIndex: index)
-                                }
-
-                                if index < people.count - 1 {
-                                    Divider()
-                                        .padding(.horizontal, 14)
                                 }
                             }
 
@@ -394,7 +390,7 @@ struct PeopleView: View {
     }
 
     private func loadMorePeopleIfNeeded(currentIndex: Int) {
-        guard currentIndex >= people.count - 8 else { return }
+        guard currentIndex >= people.count - 12 else { return }
         loadPeoplePage(reset: false)
     }
 
