@@ -74,6 +74,12 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
+    func forceResync() {
+        Task {
+            await sync()
+        }
+    }
+
     func sync() async {
         guard isEnabled else {
             state = .off

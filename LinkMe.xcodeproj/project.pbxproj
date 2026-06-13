@@ -34,9 +34,22 @@
 		76820D912FD76BED0068EAE7 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7625ED3D2FDD4CC3003476D3 /* Exceptions for "LinkMe" folder in "LinkMe" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 76820D022FD75E2E0068EAE7 /* LinkMe */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		76820D052FD75E2E0068EAE7 /* LinkMe */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7625ED3D2FDD4CC3003476D3 /* Exceptions for "LinkMe" folder in "LinkMe" target */,
+			);
 			path = LinkMe;
 			sourceTree = "<group>";
 		};
@@ -415,6 +428,7 @@
 				DEVELOPMENT_TEAM = 342L82G5GB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LinkMe/Info.plist;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "LinkMe syncs your iPhone contacts into your on-device people list";
@@ -454,6 +468,7 @@
 				DEVELOPMENT_TEAM = 342L82G5GB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LinkMe/Info.plist;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "LinkMe syncs your iPhone contacts into your on-device people list";

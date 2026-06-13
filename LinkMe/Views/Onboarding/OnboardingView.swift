@@ -113,6 +113,8 @@ struct OnboardingView: View {
                         }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(LinkMeColors.t700)
+                        .disabled(DatabaseManager.shared.fetchCards().isEmpty)
+                        .opacity(DatabaseManager.shared.fetchCards().isEmpty ? 0.5 : 1)
                     }
                 }
                 .padding(.horizontal, 22)
