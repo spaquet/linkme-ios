@@ -58,6 +58,7 @@ class DatabaseManager {
             company TEXT,
             role TEXT,
             tone TEXT DEFAULT 'teal',
+            initials TEXT DEFAULT '',
             captured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_contact DATETIME,
             is_favorite BOOLEAN DEFAULT 0,
@@ -241,8 +242,8 @@ class DatabaseManager {
 
     func insertPerson(_ person: PersonModel) {
         let sql = """
-        INSERT INTO people (id, name, company, role, tone, captured_at, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO people (id, name, company, role, tone, initials, captured_at, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         var statement: OpaquePointer?
@@ -252,16 +253,17 @@ class DatabaseManager {
             bindText(statement, 3, person.company)
             bindText(statement, 4, person.role)
             bindText(statement, 5, person.tone)
-            sqlite3_bind_int64(statement, 6, Int64(person.capturedAt.timeIntervalSince1970))
-            sqlite3_bind_int(statement, 7, person.isFavorite ? 1 : 0)
-            bindText(statement, 8, person.context)
-            bindText(statement, 9, person.personal)
-            bindText(statement, 10, person.followup)
-            bindText(statement, 11, encodeTags(person.tags))
-            bindText(statement, 12, person.appleContactIdentifier)
-            bindDate(statement, 13, person.appleContactLastSyncedAt)
-            bindText(statement, 14, person.appleContactSyncChecksum)
-            bindText(statement, 15, person.appleContactSnapshotJson)
+            bindText(statement, 6, person.initials)
+            sqlite3_bind_int64(statement, 7, Int64(person.capturedAt.timeIntervalSince1970))
+            sqlite3_bind_int(statement, 8, person.isFavorite ? 1 : 0)
+            bindText(statement, 9, person.context)
+            bindText(statement, 10, person.personal)
+            bindText(statement, 11, person.followup)
+            bindText(statement, 12, encodeTags(person.tags))
+            bindText(statement, 13, person.appleContactIdentifier)
+            bindDate(statement, 14, person.appleContactLastSyncedAt)
+            bindText(statement, 15, person.appleContactSyncChecksum)
+            bindText(statement, 16, person.appleContactSnapshotJson)
 
             if sqlite3_step(statement) == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
@@ -273,13 +275,14 @@ class DatabaseManager {
 
     func upsertPerson(_ person: PersonModel) {
         let sql = """
-        INSERT INTO people (id, name, company, role, tone, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name = excluded.name,
             company = excluded.company,
             role = excluded.role,
             tone = excluded.tone,
+            initials = excluded.initials,
             last_contact = excluded.last_contact,
             context = excluded.context,
             personal = excluded.personal,
@@ -298,17 +301,18 @@ class DatabaseManager {
             bindText(statement, 3, person.company)
             bindText(statement, 4, person.role)
             bindText(statement, 5, person.tone)
-            sqlite3_bind_int64(statement, 6, Int64(person.capturedAt.timeIntervalSince1970))
-            bindDate(statement, 7, person.lastContact)
-            sqlite3_bind_int(statement, 8, person.isFavorite ? 1 : 0)
-            bindText(statement, 9, person.context)
-            bindText(statement, 10, person.personal)
-            bindText(statement, 11, person.followup)
-            bindText(statement, 12, encodeTags(person.tags))
-            bindText(statement, 13, person.appleContactIdentifier)
-            bindDate(statement, 14, person.appleContactLastSyncedAt)
-            bindText(statement, 15, person.appleContactSyncChecksum)
-            bindText(statement, 16, person.appleContactSnapshotJson)
+            bindText(statement, 6, person.initials)
+            sqlite3_bind_int64(statement, 7, Int64(person.capturedAt.timeIntervalSince1970))
+            bindDate(statement, 8, person.lastContact)
+            sqlite3_bind_int(statement, 9, person.isFavorite ? 1 : 0)
+            bindText(statement, 10, person.context)
+            bindText(statement, 11, person.personal)
+            bindText(statement, 12, person.followup)
+            bindText(statement, 13, encodeTags(person.tags))
+            bindText(statement, 14, person.appleContactIdentifier)
+            bindDate(statement, 15, person.appleContactLastSyncedAt)
+            bindText(statement, 16, person.appleContactSyncChecksum)
+            bindText(statement, 17, person.appleContactSnapshotJson)
             if sqlite3_step(statement) == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
             }
@@ -570,6 +574,8 @@ class DatabaseManager {
         addColumnIfMissing(table: "people", column: "apple_contact_last_synced_at", definition: "DATETIME")
         addColumnIfMissing(table: "people", column: "apple_contact_sync_checksum", definition: "TEXT")
         addColumnIfMissing(table: "people", column: "apple_contact_snapshot_json", definition: "TEXT")
+        addColumnIfMissing(table: "people", column: "initials", definition: "TEXT DEFAULT ''")
+        backfillInitials()
     }
 
     private func migrateCardsSchema() {
@@ -617,6 +623,15 @@ class DatabaseManager {
         }
 
         sqlite3_finalize(statement)
+    }
+
+    private func backfillInitials() {
+        let sql = """
+        UPDATE people
+        SET initials = SUBSTR(UPPER(name), 1, 1)
+        WHERE deleted_at IS NULL AND (initials IS NULL OR initials = '')
+        """
+        executeSQL(sql)
     }
 
     private func rebuildPeopleFTS() {
@@ -682,21 +697,22 @@ class DatabaseManager {
 
         var person = PersonModel(id: id, name: name, company: company, role: role)
         person.tone = columnText(statement, 4) ?? "teal"
-        person.capturedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 5)))
-        if sqlite3_column_type(statement, 6) != SQLITE_NULL {
-            person.lastContact = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 6)))
+        person.initials = columnText(statement, 5) ?? PersonModel.computeInitials(name)
+        person.capturedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 6)))
+        if sqlite3_column_type(statement, 7) != SQLITE_NULL {
+            person.lastContact = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 7)))
         }
-        person.isFavorite = sqlite3_column_int(statement, 7) == 1
-        person.context = columnText(statement, 8) ?? ""
-        person.personal = columnText(statement, 9) ?? ""
-        person.followup = columnText(statement, 10) ?? ""
-        person.tags = decodeTags(columnText(statement, 11))
-        person.appleContactIdentifier = columnText(statement, 12)
-        if sqlite3_column_type(statement, 13) != SQLITE_NULL {
-            person.appleContactLastSyncedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 13)))
+        person.isFavorite = sqlite3_column_int(statement, 8) == 1
+        person.context = columnText(statement, 9) ?? ""
+        person.personal = columnText(statement, 10) ?? ""
+        person.followup = columnText(statement, 11) ?? ""
+        person.tags = decodeTags(columnText(statement, 12))
+        person.appleContactIdentifier = columnText(statement, 13)
+        if sqlite3_column_type(statement, 14) != SQLITE_NULL {
+            person.appleContactLastSyncedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 14)))
         }
-        person.appleContactSyncChecksum = columnText(statement, 14)
-        person.appleContactSnapshotJson = columnText(statement, 15)
+        person.appleContactSyncChecksum = columnText(statement, 15)
+        person.appleContactSnapshotJson = columnText(statement, 16)
         return person
     }
 

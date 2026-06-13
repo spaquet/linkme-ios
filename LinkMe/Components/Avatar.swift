@@ -5,20 +5,23 @@ struct Avatar: View {
     let size: CGFloat
     let tone: String?
     let ring: Bool
+    let initials: String?
 
-    init(name: String, size: CGFloat = 44, tone: String? = nil, ring: Bool = false) {
+    init(name: String, size: CGFloat = 44, tone: String? = nil, ring: Bool = false, initials: String? = nil) {
         self.name = name
         self.size = size
         self.tone = tone ?? Self.toneFor(name)
         self.ring = ring
+        self.initials = initials
     }
 
-    init(firstName: String, lastName: String? = nil, size: CGFloat = 44, tone: String? = nil, ring: Bool = false) {
+    init(firstName: String, lastName: String? = nil, size: CGFloat = 44, tone: String? = nil, ring: Bool = false, initials: String? = nil) {
         let fullName = lastName.map { "\(firstName) \($0)" } ?? firstName
         self.name = fullName
         self.size = size
         self.tone = tone ?? Self.toneFor(fullName)
         self.ring = ring
+        self.initials = initials
     }
 
     private static func toneFor(_ name: String) -> String {
@@ -41,44 +44,8 @@ struct Avatar: View {
         }
     }
 
-    private var initials: String {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        let words = trimmed.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
-
-        guard !words.isEmpty else { return "" }
-
-        // Single word: split by hyphens/apostrophes
-        if words.count == 1 {
-            let segments = trimmed.split(whereSeparator: { $0 == "-" || $0 == "'" })
-                .map(String.init)
-            return segments.prefix(2)
-                .compactMap { $0.first }
-                .map { String($0) }
-                .joined()
-                .uppercased()
-        }
-
-        // Multiple words: first initial + last initial (skipping particles)
-        let firstInitial = String(words[0].first ?? " ")
-        let lastName = removeParticles(from: words.last ?? "")
-        let lastInitial = String(lastName.first ?? " ")
-
-        return (firstInitial + lastInitial).uppercased()
-    }
-
-    private func removeParticles(from lastName: String) -> String {
-        let particles = ["d'", "de ", "du ", "la ", "le ", "van ", "von ", "von d'"]
-        let lowerName = lastName.lowercased()
-
-        for particle in particles {
-            if lowerName.hasPrefix(particle) {
-                let remaining = String(lastName.dropFirst(particle.count))
-                    .trimmingCharacters(in: .whitespaces)
-                if !remaining.isEmpty { return remaining }
-            }
-        }
-
-        return lastName
+    private var computedInitials: String {
+        initials ?? PersonModel.computeInitials(name)
     }
 
     var body: some View {
@@ -87,7 +54,7 @@ struct Avatar: View {
             RoundedRectangle(cornerRadius: size * 0.32)
                 .fill(colors.bg)
 
-            Text(initials)
+            Text(computedInitials)
                 .font(.system(size: size * 0.36, weight: .semibold, design: .default))
                 .foregroundColor(colors.fg)
         }

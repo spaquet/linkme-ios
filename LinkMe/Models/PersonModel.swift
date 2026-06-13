@@ -6,6 +6,7 @@ struct PersonModel: Identifiable, Hashable {
     var company: String
     var role: String
     var tone: String // teal, slate, amber, indigo, rose, sky
+    var initials: String
     var capturedAt: Date
     var lastContact: Date?
     var isFavorite: Bool
@@ -32,8 +33,47 @@ struct PersonModel: Identifiable, Hashable {
         self.company = company
         self.role = role
         self.tone = "teal"
+        self.initials = Self.computeInitials(name)
         self.capturedAt = Date()
         self.isFavorite = false
+    }
+
+    static func computeInitials(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        let words = trimmed.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+
+        guard !words.isEmpty else { return "" }
+
+        if words.count == 1 {
+            let segments = trimmed.split(whereSeparator: { $0 == "-" || $0 == "'" })
+                .map(String.init)
+            return segments.prefix(2)
+                .compactMap { $0.first }
+                .map { String($0) }
+                .joined()
+                .uppercased()
+        }
+
+        let firstInitial = String(words[0].first ?? " ")
+        let lastName = Self.removeParticles(from: words.last ?? "")
+        let lastInitial = String(lastName.first ?? " ")
+
+        return (firstInitial + lastInitial).uppercased()
+    }
+
+    private static func removeParticles(from lastName: String) -> String {
+        let particles = ["d'", "de ", "du ", "la ", "le ", "van ", "von ", "von d'"]
+        let lowerName = lastName.lowercased()
+
+        for particle in particles {
+            if lowerName.hasPrefix(particle) {
+                let remaining = String(lastName.dropFirst(particle.count))
+                    .trimmingCharacters(in: .whitespaces)
+                if !remaining.isEmpty { return remaining }
+            }
+        }
+
+        return lastName
     }
 }
 
