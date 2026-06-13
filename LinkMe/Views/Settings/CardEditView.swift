@@ -19,6 +19,10 @@ struct CardEditView: View {
     @State private var timezone = ""
     @State private var isDefault = false
 
+    @State private var socialLinks: [SocialLink] = []
+    @State private var paymentLinks: [PaymentLink] = []
+    @State private var chatApps: [ChatApp] = []
+
     @State private var showLocationSheet = false
     @State private var showTimezoneSheet = false
     @State private var showChatAppsModal = false
@@ -138,30 +142,40 @@ struct CardEditView: View {
                                         .foregroundColor(LinkMeColors.rose500)
                                 }
 
-                                TextField("e.g., Work Card", text: $name)
-                                    .textFieldStyle(.plain)
-                                    .font(.system(size: 15, design: .default))
-                                    .foregroundColor(LinkMeColors.ink)
-                                    .accentColor(LinkMeColors.t500)
-                                    .autocorrectionDisabled()
-                                    .focused($focusedField, equals: .name)
-                                    .submitLabel(.next)
-                                    .onSubmit { focusedField = .firstName }
-                                    .onChange(of: name) { _, newValue in
-                                        if !newValue.isEmpty && focusedField == .name && firstName.isEmpty {
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                                focusedField = .firstName
+                                ZStack(alignment: .leading) {
+                                    if name.isEmpty {
+                                        Text("e.g., Work Card")
+                                            .foregroundColor(LinkMeColors.s200)
+                                            .font(.system(size: 15, design: .default))
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+
+                                    TextField("", text: $name)
+                                        .textFieldStyle(.plain)
+                                        .font(.system(size: 15, design: .default))
+                                        .foregroundColor(LinkMeColors.ink)
+                                        .accentColor(LinkMeColors.t500)
+                                        .autocorrectionDisabled()
+                                        .focused($focusedField, equals: .name)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .firstName }
+                                        .onChange(of: name) { _, newValue in
+                                            if !newValue.isEmpty && focusedField == .name && firstName.isEmpty {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                    focusedField = .firstName
+                                                }
                                             }
                                         }
-                                    }
-                                    .padding(.horizontal, 13)
-                                    .padding(.vertical, 12)
-                                    .frame(height: 46)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(focusedField == .name ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                    )
+                                        .padding(.horizontal, 13)
+                                        .padding(.vertical, 12)
+                                }
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == .name ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
                             }
                             .padding(.horizontal, 16)
 
@@ -209,31 +223,41 @@ struct CardEditView: View {
                                             .foregroundColor(LinkMeColors.rose500)
                                     }
 
-                                    TextField("First name", text: $firstName)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .textContentType(.givenName)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .firstName)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .lastName }
-                                        .onChange(of: firstName) { _, newValue in
-                                            if !newValue.isEmpty && focusedField == .firstName && lastName.isEmpty {
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                                    focusedField = .lastName
+                                    ZStack(alignment: .leading) {
+                                        if firstName.isEmpty {
+                                            Text("First name")
+                                                .foregroundColor(LinkMeColors.s200)
+                                                .font(.system(size: 15, design: .default))
+                                                .padding(.horizontal, 13)
+                                                .padding(.vertical, 12)
+                                        }
+
+                                        TextField("", text: $firstName)
+                                            .textFieldStyle(.plain)
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
+                                            .accentColor(LinkMeColors.t500)
+                                            .textContentType(.givenName)
+                                            .autocorrectionDisabled()
+                                            .focused($focusedField, equals: .firstName)
+                                            .submitLabel(.next)
+                                            .onSubmit { focusedField = .lastName }
+                                            .onChange(of: firstName) { _, newValue in
+                                                if !newValue.isEmpty && focusedField == .firstName && lastName.isEmpty {
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                        focusedField = .lastName
+                                                    }
                                                 }
                                             }
-                                        }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .firstName ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == .firstName ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
                                 }
 
                                 VStack(alignment: .leading, spacing: 5) {
@@ -242,31 +266,41 @@ struct CardEditView: View {
                                         .foregroundColor(LinkMeColors.s400)
                                         .tracking(0.04)
 
-                                    TextField("Last name", text: $lastName)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .textContentType(.familyName)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .lastName)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .email }
-                                        .onChange(of: lastName) { _, newValue in
-                                            if !newValue.isEmpty && focusedField == .lastName && email.isEmpty {
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                                    focusedField = .email
+                                    ZStack(alignment: .leading) {
+                                        if lastName.isEmpty {
+                                            Text("Last name")
+                                                .foregroundColor(LinkMeColors.s200)
+                                                .font(.system(size: 15, design: .default))
+                                                .padding(.horizontal, 13)
+                                                .padding(.vertical, 12)
+                                        }
+
+                                        TextField("", text: $lastName)
+                                            .textFieldStyle(.plain)
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
+                                            .accentColor(LinkMeColors.t500)
+                                            .textContentType(.familyName)
+                                            .autocorrectionDisabled()
+                                            .focused($focusedField, equals: .lastName)
+                                            .submitLabel(.next)
+                                            .onSubmit { focusedField = .email }
+                                            .onChange(of: lastName) { _, newValue in
+                                                if !newValue.isEmpty && focusedField == .lastName && email.isEmpty {
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                        focusedField = .email
+                                                    }
                                                 }
                                             }
-                                        }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .lastName ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == .lastName ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -277,26 +311,36 @@ struct CardEditView: View {
                                     .foregroundColor(LinkMeColors.s400)
                                     .tracking(0.04)
 
-                                TextField("you@company.com", text: $email)
-                                    .textFieldStyle(.plain)
-                                    .font(.system(size: 15, design: .default))
-                                    .foregroundColor(LinkMeColors.ink)
-                                    .accentColor(LinkMeColors.t500)
-                                    .keyboardType(.emailAddress)
-                                    .textContentType(.emailAddress)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .focused($focusedField, equals: .email)
-                                    .submitLabel(.next)
-                                    .onSubmit { focusedField = .role }
-                                    .padding(.horizontal, 13)
-                                    .padding(.vertical, 12)
-                                    .frame(height: 46)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(focusedField == .email ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                    )
+                                ZStack(alignment: .leading) {
+                                    if email.isEmpty {
+                                        Text("you@company.com")
+                                            .foregroundColor(LinkMeColors.s200)
+                                            .font(.system(size: 15, design: .default))
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+
+                                    TextField("", text: $email)
+                                        .textFieldStyle(.plain)
+                                        .font(.system(size: 15, design: .default))
+                                        .foregroundColor(LinkMeColors.ink)
+                                        .accentColor(LinkMeColors.t500)
+                                        .keyboardType(.emailAddress)
+                                        .textContentType(.emailAddress)
+                                        .textInputAutocapitalization(.never)
+                                        .autocorrectionDisabled()
+                                        .focused($focusedField, equals: .email)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .role }
+                                        .padding(.horizontal, 13)
+                                        .padding(.vertical, 12)
+                                }
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == .email ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
                             }
                             .padding(.horizontal, 16)
                         }
@@ -310,23 +354,33 @@ struct CardEditView: View {
                                         .foregroundColor(LinkMeColors.s400)
                                         .tracking(0.04)
 
-                                    TextField("Founder & CEO", text: $role)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .role)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .company }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .role ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                    ZStack(alignment: .leading) {
+                                        if role.isEmpty {
+                                            Text("Founder & CEO")
+                                                .foregroundColor(LinkMeColors.s200)
+                                                .font(.system(size: 15, design: .default))
+                                                .padding(.horizontal, 13)
+                                                .padding(.vertical, 12)
+                                        }
+
+                                        TextField("", text: $role)
+                                            .textFieldStyle(.plain)
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
+                                            .accentColor(LinkMeColors.t500)
+                                            .autocorrectionDisabled()
+                                            .focused($focusedField, equals: .role)
+                                            .submitLabel(.next)
+                                            .onSubmit { focusedField = .company }
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == .role ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
                                 }
 
                                 VStack(alignment: .leading, spacing: 5) {
@@ -335,24 +389,34 @@ struct CardEditView: View {
                                         .foregroundColor(LinkMeColors.s400)
                                         .tracking(0.04)
 
-                                    TextField("Company", text: $company)
-                                        .textFieldStyle(.plain)
-                                        .font(.system(size: 15, design: .default))
-                                        .foregroundColor(LinkMeColors.ink)
-                                        .accentColor(LinkMeColors.t500)
-                                        .textContentType(.organizationName)
-                                        .autocorrectionDisabled()
-                                        .focused($focusedField, equals: .company)
-                                        .submitLabel(.next)
-                                        .onSubmit { focusedField = .tagline }
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 12)
-                                        .frame(height: 46)
-                                        .background(LinkMeColors.surface)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(focusedField == .company ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                        )
+                                    ZStack(alignment: .leading) {
+                                        if company.isEmpty {
+                                            Text("Company")
+                                                .foregroundColor(LinkMeColors.s200)
+                                                .font(.system(size: 15, design: .default))
+                                                .padding(.horizontal, 13)
+                                                .padding(.vertical, 12)
+                                        }
+
+                                        TextField("", text: $company)
+                                            .textFieldStyle(.plain)
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
+                                            .accentColor(LinkMeColors.t500)
+                                            .textContentType(.organizationName)
+                                            .autocorrectionDisabled()
+                                            .focused($focusedField, equals: .company)
+                                            .submitLabel(.next)
+                                            .onSubmit { focusedField = .tagline }
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+                                    .frame(height: 46)
+                                    .background(LinkMeColors.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(focusedField == .company ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                    )
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -363,23 +427,33 @@ struct CardEditView: View {
                                     .foregroundColor(LinkMeColors.s400)
                                     .tracking(0.04)
 
-                                TextField("Your tagline", text: $tagline)
-                                    .textFieldStyle(.plain)
-                                    .font(.system(size: 15, design: .default))
-                                    .foregroundColor(LinkMeColors.ink)
-                                    .accentColor(LinkMeColors.t500)
-                                    .autocorrectionDisabled()
-                                    .focused($focusedField, equals: .tagline)
-                                    .submitLabel(.next)
-                                    .onSubmit { focusedField = .location }
-                                    .padding(.horizontal, 13)
-                                    .padding(.vertical, 12)
-                                    .frame(height: 46)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(focusedField == .tagline ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                    )
+                                ZStack(alignment: .leading) {
+                                    if tagline.isEmpty {
+                                        Text("Your tagline")
+                                            .foregroundColor(LinkMeColors.s200)
+                                            .font(.system(size: 15, design: .default))
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+
+                                    TextField("", text: $tagline)
+                                        .textFieldStyle(.plain)
+                                        .font(.system(size: 15, design: .default))
+                                        .foregroundColor(LinkMeColors.ink)
+                                        .accentColor(LinkMeColors.t500)
+                                        .autocorrectionDisabled()
+                                        .focused($focusedField, equals: .tagline)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .location }
+                                        .padding(.horizontal, 13)
+                                        .padding(.vertical, 12)
+                                }
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == .tagline ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
                             }
                             .padding(.horizontal, 16)
 
@@ -389,25 +463,35 @@ struct CardEditView: View {
                                     .foregroundColor(LinkMeColors.s400)
                                     .tracking(0.04)
 
-                                TextField("Phone", text: $phone)
-                                    .textFieldStyle(.plain)
-                                    .font(.system(size: 15, design: .default))
-                                    .foregroundColor(LinkMeColors.ink)
-                                    .accentColor(LinkMeColors.t500)
-                                    .keyboardType(.phonePad)
-                                    .textContentType(.telephoneNumber)
-                                    .autocorrectionDisabled()
-                                    .focused($focusedField, equals: .phone)
-                                    .submitLabel(.done)
-                                    .onSubmit { focusedField = nil }
-                                    .padding(.horizontal, 13)
-                                    .padding(.vertical, 12)
-                                    .frame(height: 46)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(focusedField == .phone ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
-                                    )
+                                ZStack(alignment: .leading) {
+                                    if phone.isEmpty {
+                                        Text("Phone")
+                                            .foregroundColor(LinkMeColors.s200)
+                                            .font(.system(size: 15, design: .default))
+                                            .padding(.horizontal, 13)
+                                            .padding(.vertical, 12)
+                                    }
+
+                                    TextField("", text: $phone)
+                                        .textFieldStyle(.plain)
+                                        .font(.system(size: 15, design: .default))
+                                        .foregroundColor(LinkMeColors.ink)
+                                        .accentColor(LinkMeColors.t500)
+                                        .keyboardType(.phonePad)
+                                        .textContentType(.telephoneNumber)
+                                        .autocorrectionDisabled()
+                                        .focused($focusedField, equals: .phone)
+                                        .submitLabel(.done)
+                                        .onSubmit { focusedField = nil }
+                                        .padding(.horizontal, 13)
+                                        .padding(.vertical, 12)
+                                }
+                                .frame(height: 46)
+                                .background(LinkMeColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(focusedField == .phone ? LinkMeColors.t500 : LinkMeColors.s200, lineWidth: 1.5)
+                                )
                             }
                             .padding(.horizontal, 16)
 
@@ -473,65 +557,62 @@ struct CardEditView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 16)
 
-                            HStack(spacing: 11) {
-                                Button(action: { showChatAppsModal = true }) {
+                            VStack(spacing: 11) {
+                                Card {
                                     HStack {
                                         Image(systemName: "message.fill")
                                             .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.t500)
                                         Text("Chat Apps")
-                                            .font(.system(size: 14, design: .default))
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
                                         Spacer()
-                                        Image(systemName: "chevron.right")
+                                        Image(systemName: "chevron.down")
                                             .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.s400)
                                     }
-                                    .frame(height: 46)
-                                    .padding(.horizontal, 13)
-                                    .foregroundColor(LinkMeColors.t500)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                                    )
+                                    .contentShape(Rectangle())
+                                }
+                                .onTapGesture {
+                                    showChatAppsModal = true
                                 }
 
-                                Button(action: { showSocialLinksModal = true }) {
+                                Card {
                                     HStack {
                                         Image(systemName: "link")
                                             .font(.system(size: 14, weight: .semibold))
-                                        Text("Social")
-                                            .font(.system(size: 14, design: .default))
+                                            .foregroundColor(LinkMeColors.t500)
+                                        Text("Social Links")
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
                                         Spacer()
-                                        Image(systemName: "chevron.right")
+                                        Image(systemName: "chevron.down")
                                             .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.s400)
                                     }
-                                    .frame(height: 46)
-                                    .padding(.horizontal, 13)
-                                    .foregroundColor(LinkMeColors.t500)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                                    )
+                                    .contentShape(Rectangle())
+                                }
+                                .onTapGesture {
+                                    showSocialLinksModal = true
                                 }
 
-                                Button(action: { showPaymentLinksModal = true }) {
+                                Card {
                                     HStack {
                                         Image(systemName: "dollarsign.circle.fill")
                                             .font(.system(size: 14, weight: .semibold))
-                                        Text("Payment")
-                                            .font(.system(size: 14, design: .default))
+                                            .foregroundColor(LinkMeColors.t500)
+                                        Text("Payment Links")
+                                            .font(.system(size: 15, design: .default))
+                                            .foregroundColor(LinkMeColors.ink)
                                         Spacer()
-                                        Image(systemName: "chevron.right")
+                                        Image(systemName: "chevron.down")
                                             .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.s400)
                                     }
-                                    .frame(height: 46)
-                                    .padding(.horizontal, 13)
-                                    .foregroundColor(LinkMeColors.t500)
-                                    .background(LinkMeColors.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(LinkMeColors.s200, lineWidth: 1)
-                                    )
+                                    .contentShape(Rectangle())
+                                }
+                                .onTapGesture {
+                                    showPaymentLinksModal = true
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -565,6 +646,22 @@ struct CardEditView: View {
         }
         .sheet(isPresented: $showTimezoneSheet) {
             TimezonePickerSheet(timezone: $timezone, isPresented: $showTimezoneSheet)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showChatAppsModal) {
+            ChatAppsSheet(chatApps: $chatApps, isPresented: $showChatAppsModal)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showSocialLinksModal) {
+            SocialLinksSheet(socialLinks: $socialLinks, isPresented: $showSocialLinksModal)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showPaymentLinksModal) {
+            PaymentLinksSheet(paymentLinks: $paymentLinks, isPresented: $showPaymentLinksModal)
+                .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
         .onAppear {
@@ -581,6 +678,9 @@ struct CardEditView: View {
                 location = card.location ?? ""
                 timezone = card.timezone ?? ""
                 isDefault = card.isDefault
+                socialLinks = card.socialLinks
+                paymentLinks = card.paymentLinks
+                chatApps = card.chatApps
             }
         }
         .navigationBarBackButtonHidden(true)
@@ -603,6 +703,9 @@ struct CardEditView: View {
             location: location.isEmpty ? nil : location,
             timezone: timezone.isEmpty ? nil : timezone,
             pronouns: nil,
+            socialLinks: socialLinks,
+            paymentLinks: paymentLinks,
+            chatApps: chatApps,
             isDefault: isDefault,
             sharedPublicly: card?.sharedPublicly ?? false
         )
@@ -654,11 +757,19 @@ struct LocationPickerSheet: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(LinkMeColors.s500)
 
-                        TextField("Paris, France", text: $locationInput)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 17, design: .default))
-                            .foregroundColor(LinkMeColors.ink)
-                            .accentColor(LinkMeColors.t500)
+                        ZStack(alignment: .leading) {
+                            if locationInput.isEmpty {
+                                Text("Paris, France")
+                                    .foregroundColor(LinkMeColors.s200)
+                                    .font(.system(size: 17, design: .default))
+                            }
+
+                            TextField("", text: $locationInput)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 17, design: .default))
+                                .foregroundColor(LinkMeColors.ink)
+                                .accentColor(LinkMeColors.t500)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
@@ -873,11 +984,6 @@ struct TimezonePickerSheet: View {
                         .font(.system(size: 18, weight: .semibold, design: .default))
                         .foregroundColor(LinkMeColors.ink)
                     Spacer()
-                    Button(action: { isPresented = false }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(LinkMeColors.s500)
-                    }
                 }
 
                 HStack(spacing: 8) {
@@ -885,11 +991,19 @@ struct TimezonePickerSheet: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(LinkMeColors.s400)
 
-                    TextField("Search", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 15, design: .default))
-                        .foregroundColor(LinkMeColors.ink)
-                        .accentColor(LinkMeColors.t500)
+                    ZStack(alignment: .leading) {
+                        if searchText.isEmpty {
+                            Text("Search")
+                                .foregroundColor(LinkMeColors.s200)
+                                .font(.system(size: 15, design: .default))
+                        }
+
+                        TextField("", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 15, design: .default))
+                            .foregroundColor(LinkMeColors.ink)
+                            .accentColor(LinkMeColors.t500)
+                    }
 
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
@@ -989,6 +1103,447 @@ struct TimezonePickerSheet: View {
             .background(LinkMeColors.canvas)
         }
         .background(LinkMeColors.canvas)
+    }
+}
+
+struct ChatAppsSheet: View {
+    @Binding var chatApps: [ChatApp]
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Chat Apps")
+                        .font(.system(size: 18, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                    Spacer()
+                }
+
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(ChatAppType.allCases, id: \.self) { appType in
+                            let existingApp = chatApps.first { $0.type == appType }
+                            ChatAppInputRow(
+                                appType: appType,
+                                value: existingApp?.value ?? "",
+                                onSave: { newValue in
+                                    if let index = chatApps.firstIndex(where: { $0.type == appType }) {
+                                        if newValue.isEmpty {
+                                            chatApps.remove(at: index)
+                                        } else {
+                                            chatApps[index].value = newValue
+                                        }
+                                    } else if !newValue.isEmpty {
+                                        chatApps.append(ChatApp(type: appType, value: newValue))
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                Button(action: { isPresented = false }) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .foregroundColor(.white)
+                        .background(LinkMeColors.ink)
+                        .cornerRadius(12)
+                }
+            }
+            .padding(20)
+            .background(LinkMeColors.canvas)
+        }
+        .background(LinkMeColors.canvas)
+    }
+}
+
+struct ChatAppInputRow: View {
+    let appType: ChatAppType
+    @State private var inputValue: String
+    let onSave: (String) -> Void
+
+    init(appType: ChatAppType, value: String, onSave: @escaping (String) -> Void) {
+        self.appType = appType
+        self.onSave = onSave
+        _inputValue = State(initialValue: value)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(appType.displayName)
+                .font(.system(size: 12, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.s400)
+                .tracking(0.04)
+
+            HStack(spacing: 8) {
+                Image(systemName: appType.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(LinkMeColors.t500)
+
+                ZStack(alignment: .leading) {
+                    if inputValue.isEmpty {
+                        Text(appType.placeholder)
+                            .foregroundColor(LinkMeColors.s200)
+                            .font(.system(size: 14, design: .default))
+                    }
+
+                    TextField("", text: $inputValue)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+                        .onChange(of: inputValue) { _, _ in
+                            onSave(inputValue)
+                        }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .background(LinkMeColors.surface)
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                )
+            }
+        }
+    }
+}
+
+extension ChatAppType {
+    var displayName: String {
+        switch self {
+        case .whatsapp: return "WhatsApp"
+        case .wechat: return "WeChat"
+        case .signal: return "Signal"
+        case .telegram: return "Telegram"
+        case .imessage: return "iMessage"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .whatsapp: return "message.circle.fill"
+        case .wechat: return "message.circle.fill"
+        case .signal: return "message.circle.fill"
+        case .telegram: return "message.circle.fill"
+        case .imessage: return "message.circle.fill"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .whatsapp: return "e.g., +1 (555) 123-4567"
+        case .wechat: return "e.g., your_wechat_id"
+        case .signal: return "e.g., +1 (555) 123-4567"
+        case .telegram: return "e.g., @yourhandle or username"
+        case .imessage: return "e.g., your@email.com"
+        }
+    }
+}
+
+struct SocialLinksSheet: View {
+    @Binding var socialLinks: [SocialLink]
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Social Links")
+                        .font(.system(size: 18, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                    Spacer()
+                }
+
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(SocialLinkType.allCases, id: \.self) { linkType in
+                            let existingLink = socialLinks.first { $0.type == linkType }
+                            SocialLinkInputRow(
+                                linkType: linkType,
+                                value: existingLink?.value ?? "",
+                                onSave: { newValue in
+                                    if let index = socialLinks.firstIndex(where: { $0.type == linkType }) {
+                                        if newValue.isEmpty {
+                                            socialLinks.remove(at: index)
+                                        } else {
+                                            socialLinks[index].value = newValue
+                                        }
+                                    } else if !newValue.isEmpty {
+                                        socialLinks.append(SocialLink(type: linkType, value: newValue))
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                Button(action: { isPresented = false }) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .foregroundColor(.white)
+                        .background(LinkMeColors.ink)
+                        .cornerRadius(12)
+                }
+            }
+            .padding(20)
+            .background(LinkMeColors.canvas)
+        }
+        .background(LinkMeColors.canvas)
+    }
+}
+
+struct SocialLinkInputRow: View {
+    let linkType: SocialLinkType
+    @State private var inputValue: String
+    let onSave: (String) -> Void
+
+    init(linkType: SocialLinkType, value: String, onSave: @escaping (String) -> Void) {
+        self.linkType = linkType
+        self.onSave = onSave
+        _inputValue = State(initialValue: value)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(linkType.displayName)
+                .font(.system(size: 12, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.s400)
+                .tracking(0.04)
+
+            HStack(spacing: 8) {
+                Image(systemName: linkType.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(LinkMeColors.t500)
+
+                ZStack(alignment: .leading) {
+                    if inputValue.isEmpty {
+                        Text(linkType.placeholder)
+                            .foregroundColor(LinkMeColors.s200)
+                            .font(.system(size: 14, design: .default))
+                    }
+
+                    TextField("", text: $inputValue)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+                        .onChange(of: inputValue) { _, _ in
+                            onSave(inputValue)
+                        }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .background(LinkMeColors.surface)
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                )
+            }
+        }
+    }
+}
+
+extension SocialLinkType {
+    var displayName: String {
+        switch self {
+        case .website: return "Website"
+        case .blog: return "Blog"
+        case .x: return "X / Twitter"
+        case .instagram: return "Instagram"
+        case .linkedin: return "LinkedIn"
+        case .tiktok: return "TikTok"
+        case .threads: return "Threads"
+        case .bluesky: return "Bluesky"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .website: return "globe"
+        case .blog: return "book.fill"
+        case .x: return "link.circle.fill"
+        case .instagram: return "camera.fill"
+        case .linkedin: return "link.circle.fill"
+        case .tiktok: return "music.note"
+        case .threads: return "link.circle.fill"
+        case .bluesky: return "link.circle.fill"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .website: return "https://yoursite.com"
+        case .blog: return "https://medium.com/@yourhandle"
+        case .x: return "@yourhandle"
+        case .instagram: return "@yourhandle"
+        case .linkedin: return "linkedin.com/in/yourprofile"
+        case .tiktok: return "@yourhandle"
+        case .threads: return "@yourhandle"
+        case .bluesky: return "@yourhandle.bsky.social"
+        }
+    }
+}
+
+struct PaymentLinksSheet: View {
+    @Binding var paymentLinks: [PaymentLink]
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Payment Links")
+                        .font(.system(size: 18, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                    Spacer()
+                }
+
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(PaymentLinkType.allCases, id: \.self) { paymentType in
+                            let existingLink = paymentLinks.first { $0.type == paymentType }
+                            PaymentLinkInputRow(
+                                paymentType: paymentType,
+                                value: existingLink?.value ?? "",
+                                onSave: { newValue in
+                                    if let index = paymentLinks.firstIndex(where: { $0.type == paymentType }) {
+                                        if newValue.isEmpty {
+                                            paymentLinks.remove(at: index)
+                                        } else {
+                                            paymentLinks[index].value = newValue
+                                        }
+                                    } else if !newValue.isEmpty {
+                                        paymentLinks.append(PaymentLink(type: paymentType, value: newValue))
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                Button(action: { isPresented = false }) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold, design: .default))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .foregroundColor(.white)
+                        .background(LinkMeColors.ink)
+                        .cornerRadius(12)
+                }
+            }
+            .padding(20)
+            .background(LinkMeColors.canvas)
+        }
+        .background(LinkMeColors.canvas)
+    }
+}
+
+struct PaymentLinkInputRow: View {
+    let paymentType: PaymentLinkType
+    @State private var inputValue: String
+    let onSave: (String) -> Void
+
+    init(paymentType: PaymentLinkType, value: String, onSave: @escaping (String) -> Void) {
+        self.paymentType = paymentType
+        self.onSave = onSave
+        _inputValue = State(initialValue: value)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(paymentType.displayName)
+                .font(.system(size: 12, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.s400)
+                .tracking(0.04)
+
+            HStack(spacing: 8) {
+                Image(systemName: paymentType.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(LinkMeColors.t500)
+
+                ZStack(alignment: .leading) {
+                    if inputValue.isEmpty {
+                        Text(paymentType.placeholder)
+                            .foregroundColor(LinkMeColors.s200)
+                            .font(.system(size: 14, design: .default))
+                    }
+
+                    TextField("", text: $inputValue)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+                        .accentColor(LinkMeColors.t500)
+                        .onChange(of: inputValue) { _, _ in
+                            onSave(inputValue)
+                        }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .background(LinkMeColors.surface)
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                )
+            }
+        }
+    }
+}
+
+extension PaymentLinkType {
+    var displayName: String {
+        switch self {
+        case .stripe: return "Stripe"
+        case .venmo: return "Venmo"
+        case .paypal: return "PayPal"
+        case .square: return "Square Cash"
+        case .cashapp: return "Cash App"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .stripe: return "creditcard.fill"
+        case .venmo: return "dollarsign.circle.fill"
+        case .paypal: return "creditcard.fill"
+        case .square: return "creditcard.fill"
+        case .cashapp: return "dollarsign.circle.fill"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .stripe: return "stripe.com/yourname"
+        case .venmo: return "@yourname"
+        case .paypal: return "yourname@email.com"
+        case .square: return "cash.app/$yourname"
+        case .cashapp: return "$yourname"
+        }
     }
 }
 
