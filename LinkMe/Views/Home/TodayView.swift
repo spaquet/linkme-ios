@@ -1,4 +1,3 @@
-import EventKit
 import SwiftUI
 
 struct TodayCalendarEvent: Identifiable {
@@ -124,11 +123,10 @@ struct TodayView: View {
     @Binding var selectedTab: Int
     @State private var recentCaptures: [PersonModel] = []
     @State private var nudges: [NudgeModel] = MockDataManager.mockNudges
-    @State private var calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-    private let eventStore = EKEventStore()
+    @StateObject private var calendarManager = CalendarManager.shared
 
     private var isCalendarConnected: Bool {
-        calendarAuthorizationStatus == .fullAccess
+        calendarManager.isFullAccessGranted
     }
 
     private var upcomingEvents: [TodayCalendarEvent] {
@@ -154,31 +152,7 @@ struct TodayView: View {
     }
 
     private func requestCalendarAccess() {
-        Task {
-            do {
-                if #available(iOS 17.0, *) {
-                    _ = try await eventStore.requestFullAccessToEvents()
-                } else {
-                    let _: Bool = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-                        eventStore.requestAccess(to: .event) { granted, error in
-                            if let error {
-                                continuation.resume(throwing: error)
-                            } else {
-                                continuation.resume(returning: granted)
-                            }
-                        }
-                    }
-                }
-
-                await MainActor.run {
-                    calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-                }
-            } catch {
-                await MainActor.run {
-                    calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-                }
-            }
-        }
+        calendarManager.requestAccess()
     }
 
     var body: some View {
@@ -365,7 +339,7 @@ struct TodayView: View {
         }
         .onAppear {
             loadRecentCaptures()
-            calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+            calendarManager.refreshStatus()
         }
         .onChange(of: navigationManager.navigationPath.count) { _, _ in
             loadRecentCaptures()

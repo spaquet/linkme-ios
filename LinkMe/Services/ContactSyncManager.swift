@@ -92,31 +92,18 @@ final class ContactSyncManager: ObservableObject {
             let contacts = try await fetchContacts()
             var nextStats = ContactSyncStats(total: contacts.count, lastSyncedAt: Date())
 
-            for contact in contacts {
-                let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contact.identifier)
-                var person = existing ?? PersonModel(
-                    id: "apple-contact-\(contact.identifier)",
-                    name: Self.displayName(for: contact),
-                    company: contact.organizationName,
-                    role: contact.jobTitle
-                )
+            let batchSize = 200
+            for batchStart in stride(from: 0, to: contacts.count, by: batchSize) {
+                let batchEnd = min(batchStart + batchSize, contacts.count)
+                let batch = Array(contacts[batchStart..<batchEnd])
 
-                if existing == nil {
-                    nextStats.imported += 1
-                } else if personSyncChecksum(person) != Self.contactChecksum(contact) {
-                    nextStats.updated += 1
+                let (imported, updated) = await processBatch(batch, lastSyncedAt: nextStats.lastSyncedAt ?? Date())
+                nextStats.imported += imported
+                nextStats.updated += updated
+
+                await MainActor.run {
+                    self.stats = nextStats
                 }
-
-                person.name = Self.displayName(for: contact)
-                person.company = contact.organizationName
-                person.role = contact.jobTitle
-                person.appleContactIdentifier = contact.identifier
-                person.appleContactLastSyncedAt = nextStats.lastSyncedAt
-                person.appleContactSyncChecksum = Self.contactChecksum(contact)
-                person.appleContactSnapshotJson = Self.contactSnapshotJson(contact)
-                person.tags = Self.mergedTags(person.tags, contact: contact)
-
-                DatabaseManager.shared.upsertPerson(person)
             }
 
             let validContactIdentifiers = Set(contacts.map(\.identifier))
@@ -128,6 +115,42 @@ final class ContactSyncManager: ObservableObject {
         } catch {
             state = .failed(error.localizedDescription)
         }
+    }
+
+    private nonisolated func processBatch(_ contacts: [CNContact], lastSyncedAt: Date) async -> (imported: Int, updated: Int) {
+        await Task.detached(priority: .background) {
+            var imported = 0
+            var updated = 0
+
+            for contact in contacts {
+                let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contact.identifier)
+                var person = existing ?? PersonModel(
+                    id: "apple-contact-\(contact.identifier)",
+                    name: Self.displayName(for: contact),
+                    company: contact.organizationName,
+                    role: contact.jobTitle
+                )
+
+                if existing == nil {
+                    imported += 1
+                } else if person.appleContactSyncChecksum != Self.contactChecksum(contact) {
+                    updated += 1
+                }
+
+                person.name = Self.displayName(for: contact)
+                person.company = contact.organizationName
+                person.role = contact.jobTitle
+                person.appleContactIdentifier = contact.identifier
+                person.appleContactLastSyncedAt = lastSyncedAt
+                person.appleContactSyncChecksum = Self.contactChecksum(contact)
+                person.appleContactSnapshotJson = Self.contactSnapshotJson(contact)
+                person.tags = Self.mergedTags(person.tags, contact: contact)
+
+                DatabaseManager.shared.upsertPerson(person)
+            }
+
+            return (imported, updated)
+        }.value
     }
 
     private func requestAccessIfNeeded() async throws -> Bool {
@@ -144,7 +167,7 @@ final class ContactSyncManager: ObservableObject {
     }
 
     private func fetchContacts() async throws -> [CNContact] {
-        try await Task.detached(priority: .userInitiated) {
+        try await Task.detached(priority: .background) {
             let store = CNContactStore()
             let keys = Self.contactFetchKeys()
             var contacts: [CNContact] = []
@@ -441,7 +464,7 @@ final class ContactSyncManager: ObservableObject {
             contact.jobTitle != person.role
     }
 
-    private func personSyncChecksum(_ person: PersonModel) -> String {
+    private nonisolated func personSyncChecksum(_ person: PersonModel) -> String {
         person.appleContactSyncChecksum ?? ""
     }
 }

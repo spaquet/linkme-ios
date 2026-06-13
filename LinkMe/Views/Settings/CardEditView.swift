@@ -688,6 +688,10 @@ struct CardEditView: View {
 
     private func saveCard() {
         let cardName = name.trimmingCharacters(in: .whitespaces).isEmpty ? "\(firstName)'s Card" : name
+        let isNewCard = card == nil
+        let existingCards = DatabaseManager.shared.fetchCards()
+        let shouldBeDefault = isNewCard ? (existingCards.isEmpty || isDefault) : isDefault
+
         let savedCard = CardModel(
             id: card?.id ?? UUID().uuidString,
             name: cardName,
@@ -706,15 +710,18 @@ struct CardEditView: View {
             socialLinks: socialLinks,
             paymentLinks: paymentLinks,
             chatApps: chatApps,
-            isDefault: isDefault,
+            isDefault: shouldBeDefault,
             sharedPublicly: card?.sharedPublicly ?? false
         )
 
-        if card == nil {
+        if isNewCard {
             DatabaseManager.shared.insertCard(savedCard)
+            if shouldBeDefault {
+                DatabaseManager.shared.setDefaultCard(cardId: savedCard.id)
+            }
         } else {
             DatabaseManager.shared.updateCard(savedCard)
-            if isDefault {
+            if shouldBeDefault {
                 DatabaseManager.shared.setDefaultCard(cardId: savedCard.id)
             }
         }

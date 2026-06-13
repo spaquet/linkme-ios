@@ -559,6 +559,28 @@ class DatabaseManager {
     private func migrateCardsSchema() {
         addColumnIfMissing(table: "cards", column: "name", definition: "TEXT NOT NULL DEFAULT ''")
         addColumnIfMissing(table: "cards", column: "nickname", definition: "TEXT")
+        fixMultipleDefaults()
+    }
+
+    private func fixMultipleDefaults() {
+        let sql = """
+        SELECT id FROM cards WHERE deleted_at IS NULL AND is_default = 1 ORDER BY created_at ASC LIMIT -1 OFFSET 1
+        """
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                if let cardId = columnText(statement, 0) {
+                    let updateSQL = "UPDATE cards SET is_default = 0 WHERE id = ?"
+                    var updateStatement: OpaquePointer?
+                    if sqlite3_prepare_v2(db, updateSQL, -1, &updateStatement, nil) == SQLITE_OK {
+                        bindText(updateStatement, 1, cardId)
+                        sqlite3_step(updateStatement)
+                    }
+                    sqlite3_finalize(updateStatement)
+                }
+            }
+        }
+        sqlite3_finalize(statement)
     }
 
     private func backfillPersonTags() {
@@ -925,6 +947,18 @@ class DatabaseManager {
             return nil
         }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    func clearAllData() {
+        let tables = ["people", "notes", "contacts", "threads", "shares", "relationships", "cards", "users"]
+        for table in tables {
+            let sql = "DELETE FROM \(table)"
+            var statement: OpaquePointer?
+            if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+                sqlite3_step(statement)
+            }
+            sqlite3_finalize(statement)
+        }
     }
 
     deinit {

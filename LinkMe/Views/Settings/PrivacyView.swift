@@ -3,9 +3,9 @@ import SwiftUI
 struct PrivacyView: View {
     let appState: AppState
     @StateObject private var contactSync = ContactSyncManager.shared
+    @StateObject private var calendarManager = CalendarManager.shared
     @State private var cloudEnrichment = false
     @State private var lifeSignals = false
-    @State private var calendar = true
     @State private var siri = false
     @State private var showResetConfirmation = false
 
@@ -13,6 +13,17 @@ struct PrivacyView: View {
         Binding(
             get: { contactSync.isEnabled },
             set: { contactSync.setEnabled($0) }
+        )
+    }
+
+    private var calendarBinding: Binding<Bool> {
+        Binding(
+            get: { calendarManager.isEnabled },
+            set: { enabled in
+                if enabled {
+                    calendarManager.requestAccess()
+                }
+            }
         )
     }
 
@@ -166,7 +177,7 @@ struct PrivacyView: View {
                                         icon: "calendar",
                                         title: "Calendar",
                                         detail: "Read upcoming events to time your briefings.",
-                                        isToggled: $calendar,
+                                        isToggled: calendarBinding,
                                         isLocked: false
                                     )
 

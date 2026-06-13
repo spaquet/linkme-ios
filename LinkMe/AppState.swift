@@ -52,5 +52,14 @@ class AppState {
     func reset() {
         hasCompletedOnboarding = false
         currentUser = nil
+
+        let defaults = UserDefaults.standard
+        let keys = defaults.dictionaryRepresentation().keys
+        for key in keys {
+            defaults.removeObject(forKey: key)
+        }
+        defaults.synchronize()
+
+        DatabaseManager.shared.clearAllData()
     }
 }

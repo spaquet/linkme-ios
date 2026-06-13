@@ -177,9 +177,21 @@ struct CardRow: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(card.name)
-                    .font(.system(size: 15, weight: .semibold, design: .default))
-                    .foregroundColor(LinkMeColors.ink)
+                HStack(spacing: 8) {
+                    Text(card.fullName)
+                        .font(.system(size: 15, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.ink)
+
+                    if isDefault {
+                        Text("Default")
+                            .font(.system(size: 11, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.t600)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(LinkMeColors.t50)
+                            .cornerRadius(4)
+                    }
+                }
 
                 Text("\(card.role) · \(card.company)")
                     .font(.system(size: 12.5, design: .default))
