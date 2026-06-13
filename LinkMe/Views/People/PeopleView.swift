@@ -204,7 +204,7 @@ struct PeopleView: View {
                     .padding(.bottom, LinkMeLayout.tabBarHeight)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: 0, pinnedViews: []) {
                             ForEach(people.indices, id: \.self) { index in
                                 Button(action: {
                                     navigationManager.openPersonDetail(people[index])
@@ -266,6 +266,7 @@ struct PeopleView: View {
                         .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                     }
                     .scrollPosition(id: $scrollPosition)
+                    .contentMargins(.vertical, 200, for: .scrollContent)
                 }
             }
         }
