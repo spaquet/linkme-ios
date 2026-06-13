@@ -676,16 +676,27 @@ struct LocationPickerSheet: View {
                             .stroke(LinkMeColors.s200, lineWidth: 1)
                     )
 
-                    Text("Format: City, State, Country")
-                        .font(.system(size: 13, design: .default))
-                        .foregroundColor(LinkMeColors.s500)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Format examples:")
+                            .font(.system(size: 13, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+
+                        Text("Paris, France • Los Angeles, CA, USA • Mumbai, India")
+                            .font(.system(size: 12, design: .default))
+                            .foregroundColor(LinkMeColors.s600)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 Divider()
                     .padding(.vertical, 8)
 
-                VStack(spacing: 12) {
+                Button(action: {
+                    if !locationManager.isLoading {
+                        locationManager.requestLocation()
+                    }
+                }) {
                     HStack(spacing: 10) {
                         Image(systemName: "location.fill")
                             .font(.system(size: 16, weight: .semibold))
@@ -700,10 +711,6 @@ struct LocationPickerSheet: View {
                         if locationManager.isLoading {
                             ProgressView()
                                 .scaleEffect(0.8, anchor: .center)
-                        } else {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(LinkMeColors.s400)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -714,12 +721,8 @@ struct LocationPickerSheet: View {
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(LinkMeColors.s200, lineWidth: 1)
                     )
-                    .onTapGesture {
-                        if !locationManager.isLoading {
-                            locationManager.requestLocation()
-                        }
-                    }
                 }
+                .disabled(locationManager.isLoading)
             }
             .padding(.horizontal, 20)
 
