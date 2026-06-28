@@ -164,16 +164,42 @@ final class EmailScanManager {
         return []
     }
 
-    // MARK: - OAuth Stubs (Phase 4)
+    // MARK: - Gmail
 
-    /// Scan Gmail inbox (Phase 4).
-    func scanGmail(accessToken: String) async throws {
-        throw EmailScanError.notImplemented("Gmail scanning coming in Phase 4")
+    /// Scan Gmail for LinkedIn connection emails using stored OAuth token.
+    func scanGmail() async {
+        guard !isScanning else { return }
+        isScanning = true
+        state = .scanning
+        defer {
+            isScanning = false
+            state = .idle
+            stats.lastScannedAt = Date()
+        }
+
+        do {
+            let emails = try await GmailAPIClient.shared.fetchLinkedInEmails()
+            var localStats = EmailScanStats()
+            localStats.scanned = emails.count
+
+            for email in emails {
+                guard !DatabaseManager.shared.emailMessageExists(id: email.id) else { continue }
+                processEmail(email, stats: &localStats)
+                DatabaseManager.shared.insertEmailMessage(email)
+            }
+
+            stats = localStats
+            stats.lastScannedAt = Date()
+            pendingLinkedInConnections = DatabaseManager.shared.fetchPendingLinkedInConnections()
+        } catch {
+            state = .failed(error.localizedDescription)
+            isScanning = false
+        }
     }
 
-    /// Scan Outlook inbox (Phase 4).
+    /// Scan Outlook inbox (future).
     func scanOutlook(accessToken: String) async throws {
-        throw EmailScanError.notImplemented("Outlook scanning coming in Phase 4")
+        throw EmailScanError.notImplemented("Outlook scanning not yet available.")
     }
 }
 

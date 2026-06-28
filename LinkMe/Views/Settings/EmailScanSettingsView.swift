@@ -3,7 +3,10 @@ import SwiftUI
 /// Email scanning settings and manual trigger UI.
 struct EmailScanSettingsView: View {
     @State private var manager = EmailScanManager.shared
+    @State private var tokenManager = OAuthTokenManager.shared
     @State private var showResults = false
+    @State private var isConnectingGmail = false
+    @State private var gmailError: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -54,8 +57,16 @@ struct EmailScanSettingsView: View {
 
                             Card(padding: 0) {
                                 VStack(spacing: 0) {
-                                    // Scan action row
-                                    Button(action: { Task { await manager.scanAppleMail() } }) {
+                                    // Scan action row — routes to connected provider
+                                    Button(action: {
+                                        Task {
+                                            if tokenManager.isGmailConnected {
+                                                await manager.scanGmail()
+                                            } else {
+                                                await manager.scanAppleMail()
+                                            }
+                                        }
+                                    }) {
                                         HStack(alignment: .top, spacing: 12) {
                                             Image(systemName: "person.badge.plus")
                                                 .font(.system(size: 16, weight: .semibold))
@@ -95,7 +106,7 @@ struct EmailScanSettingsView: View {
                                         }
                                         .padding(14)
                                     }
-                                    .disabled(manager.isScanning)
+                                    .disabled(manager.isScanning || !tokenManager.isGmailConnected)
 
                                     if !manager.pendingLinkedInConnections.isEmpty {
                                         Divider(inset: 63)
@@ -172,16 +183,31 @@ struct EmailScanSettingsView: View {
 
                                     Divider(inset: 63)
 
-                                    ComingSoonProviderRow(
-                                        icon: AnyView(
-                                            Image("gmail")
-                                                .resizable()
-                                                .renderingMode(.template)
-                                                .scaledToFit()
-                                                .foregroundColor(LinkMeColors.s400)
-                                                .frame(width: 20, height: 20)
-                                        ),
-                                        label: "Gmail"
+                                    // Gmail — live OAuth
+                                    GmailProviderRow(
+                                        tokenManager: tokenManager,
+                                        isConnecting: isConnectingGmail,
+                                        isScanning: manager.isScanning,
+                                        onConnect: {
+                                            Task {
+                                                isConnectingGmail = true
+                                                gmailError = nil
+                                                do {
+                                                    try await GmailAuthService.shared.authenticate()
+                                                } catch OAuthError.authCancelled {
+                                                    // user cancelled — silent
+                                                } catch {
+                                                    gmailError = error.localizedDescription
+                                                }
+                                                isConnectingGmail = false
+                                            }
+                                        },
+                                        onScan: {
+                                            Task { await manager.scanGmail() }
+                                        },
+                                        onDisconnect: {
+                                            tokenManager.disconnectGmail()
+                                        }
                                     )
 
                                     Divider(inset: 63)
@@ -198,6 +224,13 @@ struct EmailScanSettingsView: View {
                                         label: "Outlook"
                                     )
                                 }
+                            }
+
+                            if let error = gmailError {
+                                Text(error)
+                                    .font(.system(size: 12, design: .default))
+                                    .foregroundColor(.red.opacity(0.8))
+                                    .padding(.horizontal, 4)
                             }
                         }
                     }
@@ -225,13 +258,23 @@ struct EmailScanSettingsView: View {
                 .background(LinkMeColors.t100)
                 .cornerRadius(999)
         case .idle:
-            Text("Active")
-                .font(.system(size: 11, weight: .semibold, design: .default))
-                .foregroundColor(LinkMeColors.t700)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(LinkMeColors.t100)
-                .cornerRadius(999)
+            if tokenManager.isGmailConnected {
+                Text("Active")
+                    .font(.system(size: 11, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.t700)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(LinkMeColors.t100)
+                    .cornerRadius(999)
+            } else {
+                Text("No provider")
+                    .font(.system(size: 11, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.s500)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(LinkMeColors.s100)
+                    .cornerRadius(999)
+            }
         case .failed:
             Text("Error")
                 .font(.system(size: 11, weight: .semibold, design: .default))
@@ -265,6 +308,105 @@ private struct ScanStatRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+}
+
+/// Gmail provider row with connect/scan/disconnect actions.
+private struct GmailProviderRow: View {
+    let tokenManager: OAuthTokenManager
+    let isConnecting: Bool
+    let isScanning: Bool
+    let onConnect: () -> Void
+    let onScan: () -> Void
+    let onDisconnect: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Icon
+            Image("gmail")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+                .frame(width: 40, height: 40)
+                .background(tokenManager.isGmailConnected ? LinkMeColors.t50 : LinkMeColors.s100)
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(tokenManager.isGmailConnected ? LinkMeColors.t200 : LinkMeColors.s200, lineWidth: 1.5)
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Gmail")
+                    .font(.system(size: 16, weight: .semibold, design: .default))
+                    .foregroundColor(tokenManager.isGmailConnected ? LinkMeColors.ink : LinkMeColors.s500)
+
+                if let email = tokenManager.gmailEmail {
+                    Text(email)
+                        .font(.system(size: 12, design: .default))
+                        .foregroundColor(LinkMeColors.s400)
+                } else {
+                    Text("Read-only")
+                        .font(.system(size: 12, design: .default))
+                        .foregroundColor(LinkMeColors.s400)
+                }
+            }
+
+            Spacer()
+
+            if tokenManager.isGmailConnected {
+                Menu {
+                    Button {
+                        onScan()
+                    } label: {
+                        Label("Scan now", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(isScanning)
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        onDisconnect()
+                    } label: {
+                        Label("Disconnect", systemImage: "xmark.circle")
+                    }
+                } label: {
+                    if isScanning {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                            .frame(width: 32, height: 32)
+                    } else {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
+                            .background(LinkMeColors.s100)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+            } else {
+                Button(action: onConnect) {
+                    if isConnecting {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                            .frame(width: 68, height: 28)
+                    } else {
+                        Text("Connect")
+                            .font(.system(size: 13, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.t700)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(LinkMeColors.t50)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(LinkMeColors.t200, lineWidth: 1.5)
+                            )
+                    }
+                }
+                .disabled(isConnecting)
+            }
+        }
+        .padding(14)
     }
 }
 

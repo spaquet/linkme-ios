@@ -1,5 +1,12 @@
 import Foundation
 
+/// Email provider source.
+enum EmailProvider: String {
+    case appleMail = "apple_mail"
+    case gmail = "gmail"
+    case outlook = "outlook"
+}
+
 /// A single email message processed by the email scanner.
 ///
 /// Lightweight representation storing only metadata + scan results.
@@ -7,6 +14,9 @@ import Foundation
 struct EmailMessageModel: Identifiable {
     /// Stable unique ID (derived from messageId + from + timestamp hash).
     let id: String
+
+    /// Provider-native message ID (Gmail message ID, etc.).
+    let gmailMessageId: String?
 
     /// Sender email address.
     let from: String
@@ -26,6 +36,9 @@ struct EmailMessageModel: Identifiable {
     /// Email Message-ID header (for deduplication).
     let messageId: String?
 
+    /// Source provider.
+    let provider: EmailProvider
+
     /// When this email was processed by LinkMe.
     var scannedAt: Date?
 
@@ -35,24 +48,30 @@ struct EmailMessageModel: Identifiable {
     /// Person ID linked to this email after processing.
     var linkedPersonId: String?
 
-    /// Creates a new email message record.
-    ///
-    /// - Parameters:
-    ///   - from: Sender email address.
-    ///   - subject: Email subject line.
-    ///   - body: Plain text body.
-    ///   - htmlBody: Optional HTML body.
-    ///   - timestamp: When the email was sent.
-    ///   - messageId: Optional Message-ID header for deduplication.
-    init(from: String, subject: String, body: String, htmlBody: String? = nil, timestamp: Date, messageId: String? = nil) {
-        // Stable ID: hash of from + messageId + timestamp
-        let key = "\(from):\(messageId ?? ""):\(Int64(timestamp.timeIntervalSince1970))"
-        self.id = key.data(using: .utf8).map { Data($0).base64EncodedString() } ?? UUID().uuidString
+    init(
+        id: String? = nil,
+        gmailMessageId: String? = nil,
+        from: String,
+        subject: String,
+        body: String,
+        htmlBody: String? = nil,
+        timestamp: Date,
+        messageId: String? = nil,
+        provider: EmailProvider = .appleMail
+    ) {
+        if let id {
+            self.id = id
+        } else {
+            let key = "\(from):\(messageId ?? ""):\(Int64(timestamp.timeIntervalSince1970))"
+            self.id = key.data(using: .utf8).map { Data($0).base64EncodedString() } ?? UUID().uuidString
+        }
+        self.gmailMessageId = gmailMessageId
         self.from = from
         self.subject = subject
         self.body = body
         self.htmlBody = htmlBody
         self.timestamp = timestamp
         self.messageId = messageId
+        self.provider = provider
     }
 }
