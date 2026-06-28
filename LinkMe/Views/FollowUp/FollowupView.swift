@@ -1,3 +1,6 @@
+import SwiftUI
+
+
 /// Draft and send a follow-up message to a person.
 ///
 /// AI-generated message with tone selection (Warm, Brief, Formal), channel selection, and send/schedule options.
