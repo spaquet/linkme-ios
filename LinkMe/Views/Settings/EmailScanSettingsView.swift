@@ -4,108 +4,301 @@ import SwiftUI
 struct EmailScanSettingsView: View {
     @State private var manager = EmailScanManager.shared
     @State private var showResults = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
-            Section {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Apple Mail")
-                            .font(.body)
-                        Text("Scans for LinkedIn connections")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        ZStack {
+            LinkMeColors.canvas
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Nav header
+                HStack(spacing: 10) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(LinkMeColors.s500)
+                            .frame(width: 32, height: 32)
+                            .background(LinkMeColors.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(LinkMeColors.s200, lineWidth: 1)
+                            )
                     }
                     Spacer()
-                    statusBadge
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
 
-                if let lastScan = manager.stats.lastScannedAt {
-                    Text("Last scan: \(lastScan.formatted(.relative(presentation: .named)))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Email scanning")
+                        .font(.system(size: 28, weight: .semibold, design: .default))
+                        .tracking(-0.02)
+                        .foregroundColor(LinkMeColors.ink)
+
+                    Text("Detect new connections from your inbox")
+                        .font(.system(size: 13.5, weight: .regular, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
                 }
-            } header: {
-                Text("Email Providers")
-            }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
 
-            Section {
-                Button(action: { Task { await manager.scanAppleMail() } }) {
-                    HStack {
-                        Label("Scan Now", systemImage: "arrow.clockwise")
-                        Spacer()
-                        if manager.isScanning {
-                            ProgressView().scaleEffect(0.8)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+
+                        // Active signals
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel("Signals")
+
+                            Card(padding: 0) {
+                                VStack(spacing: 0) {
+                                    // Scan action row
+                                    Button(action: { Task { await manager.scanAppleMail() } }) {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: "person.badge.plus")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(manager.isScanning ? LinkMeColors.s400 : LinkMeColors.t600)
+                                                .frame(width: 40, height: 40)
+                                                .background(manager.isScanning ? LinkMeColors.s100 : LinkMeColors.t50)
+                                                .cornerRadius(14)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 14)
+                                                        .stroke(manager.isScanning ? LinkMeColors.s200 : LinkMeColors.t200, lineWidth: 1.5)
+                                                )
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("LinkedIn connections")
+                                                    .font(.system(size: 16, weight: .semibold, design: .default))
+                                                    .foregroundColor(manager.isScanning ? LinkMeColors.s400 : LinkMeColors.ink)
+
+                                                if let lastScan = manager.stats.lastScannedAt {
+                                                    Text("Last scan \(lastScan.formatted(.relative(presentation: .named)))")
+                                                        .font(.system(size: 13.5, design: .default))
+                                                        .foregroundColor(LinkMeColors.s500)
+                                                } else {
+                                                    Text("Never scanned")
+                                                        .font(.system(size: 13.5, design: .default))
+                                                        .foregroundColor(LinkMeColors.s500)
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            if manager.isScanning {
+                                                ProgressView()
+                                                    .scaleEffect(0.8)
+                                            } else {
+                                                scanStateBadge
+                                            }
+                                        }
+                                        .padding(14)
+                                    }
+                                    .disabled(manager.isScanning)
+
+                                    if !manager.pendingLinkedInConnections.isEmpty {
+                                        Divider(inset: 63)
+
+                                        Button(action: { showResults = true }) {
+                                            HStack(alignment: .top, spacing: 12) {
+                                                Image(systemName: "tray.full")
+                                                    .font(.system(size: 16, weight: .semibold))
+                                                    .foregroundColor(LinkMeColors.t600)
+                                                    .frame(width: 40, height: 40)
+                                                    .background(LinkMeColors.t50)
+                                                    .cornerRadius(14)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 14)
+                                                            .stroke(LinkMeColors.t200, lineWidth: 1.5)
+                                                    )
+
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text("Pending connections")
+                                                        .font(.system(size: 16, weight: .semibold, design: .default))
+                                                        .foregroundColor(LinkMeColors.ink)
+
+                                                    Text("\(manager.pendingLinkedInConnections.count) waiting to be added")
+                                                        .font(.system(size: 13.5, design: .default))
+                                                        .foregroundColor(LinkMeColors.s500)
+                                                }
+
+                                                Spacer()
+
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundColor(LinkMeColors.s300)
+                                            }
+                                            .padding(14)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Last scan stats
+                        if manager.stats.lastScannedAt != nil {
+                            VStack(alignment: .leading, spacing: 10) {
+                                SectionLabel("Last scan")
+
+                                Card(padding: 0) {
+                                    VStack(spacing: 0) {
+                                        ScanStatRow(label: "Emails processed", value: "\(manager.stats.scanned)")
+                                        Divider(inset: 16)
+                                        ScanStatRow(label: "Connections found", value: "\(manager.stats.linkedInFound)")
+                                        Divider(inset: 16)
+                                        ScanStatRow(label: "People created", value: "\(manager.stats.personsCreated)")
+                                        Divider(inset: 16)
+                                        ScanStatRow(label: "Threads created", value: "\(manager.stats.threadsCreated)")
+                                    }
+                                }
+                            }
+                        }
+
+                        // Providers
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel("Providers")
+
+                            Card(padding: 0) {
+                                VStack(spacing: 0) {
+                                    ComingSoonProviderRow(
+                                        icon: AnyView(
+                                            Image(systemName: "envelope")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(LinkMeColors.s400)
+                                        ),
+                                        label: "Apple Mail"
+                                    )
+
+                                    Divider(inset: 63)
+
+                                    ComingSoonProviderRow(
+                                        icon: AnyView(
+                                            Image("gmail")
+                                                .resizable()
+                                                .renderingMode(.template)
+                                                .scaledToFit()
+                                                .foregroundColor(LinkMeColors.s400)
+                                                .frame(width: 20, height: 20)
+                                        ),
+                                        label: "Gmail"
+                                    )
+
+                                    Divider(inset: 63)
+
+                                    ComingSoonProviderRow(
+                                        icon: AnyView(
+                                            Image("ms-outlook")
+                                                .resizable()
+                                                .renderingMode(.template)
+                                                .scaledToFit()
+                                                .foregroundColor(LinkMeColors.s400)
+                                                .frame(width: 20, height: 20)
+                                        ),
+                                        label: "Outlook"
+                                    )
+                                }
+                            }
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 18)
+                    .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                 }
-                .disabled(manager.isScanning)
-
-                if !manager.pendingLinkedInConnections.isEmpty {
-                    Button("View \(manager.pendingLinkedInConnections.count) LinkedIn connections") {
-                        showResults = true
-                    }
-                }
-            } header: {
-                Text("Actions")
-            }
-
-            if manager.stats.lastScannedAt != nil {
-                Section {
-                    LabeledContent("Emails scanned", value: "\(manager.stats.scanned)")
-                    LabeledContent("Connections found", value: "\(manager.stats.linkedInFound)")
-                    LabeledContent("People created", value: "\(manager.stats.personsCreated)")
-                    LabeledContent("Threads created", value: "\(manager.stats.threadsCreated)")
-                } header: {
-                    Text("Last Scan Stats")
-                }
-            }
-
-            Section {
-                HStack {
-                    Label("Gmail", systemImage: "envelope")
-                    Spacer()
-                    Text("Coming in Phase 4")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                HStack {
-                    Label("Outlook", systemImage: "envelope")
-                    Spacer()
-                    Text("Coming in Phase 4")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Other Providers")
-            } footer: {
-                Text("Gmail and Outlook support coming soon.")
             }
         }
-        .navigationTitle("Email Scanning")
+        .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showResults) {
             LinkedInConnectionsView()
         }
     }
 
     @ViewBuilder
-    var statusBadge: some View {
+    private var scanStateBadge: some View {
         switch manager.state {
         case .scanning:
-            Label("Scanning", systemImage: "arrow.clockwise")
-                .font(.caption)
-                .foregroundStyle(.teal)
+            Text("Scanning")
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.t700)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(LinkMeColors.t100)
+                .cornerRadius(999)
         case .idle:
             Text("Active")
-                .font(.caption)
-                .foregroundStyle(.green)
-        case .failed(let msg):
-            Text("Error: \(msg)")
-                .font(.caption)
-                .foregroundStyle(.red)
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.t700)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(LinkMeColors.t100)
+                .cornerRadius(999)
+        case .failed:
+            Text("Error")
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.red.opacity(0.75))
+                .cornerRadius(999)
         default:
             EmptyView()
         }
+    }
+}
+
+/// Single stat row in the scan results card.
+private struct ScanStatRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, design: .default))
+                .foregroundColor(LinkMeColors.s600)
+
+            Spacer()
+
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.ink)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+}
+
+/// Coming-soon provider row with generic icon slot.
+private struct ComingSoonProviderRow: View {
+    let icon: AnyView
+    let label: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            icon
+                .frame(width: 40, height: 40)
+                .background(LinkMeColors.s100)
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(LinkMeColors.s200, lineWidth: 1.5)
+                )
+
+            Text(label)
+                .font(.system(size: 16, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.s500)
+
+            Spacer()
+
+            Text("Coming soon")
+                .font(.system(size: 11, weight: .semibold, design: .default))
+                .foregroundColor(LinkMeColors.s500)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(LinkMeColors.s100)
+                .cornerRadius(999)
+        }
+        .padding(14)
     }
 }
 
@@ -116,10 +309,41 @@ struct LinkedInConnectionsView: View {
 
     var body: some View {
         NavigationStack {
-            List(manager.pendingLinkedInConnections) { connection in
-                LinkedInConnectionRow(connection: connection)
+            ZStack {
+                LinkMeColors.canvas.ignoresSafeArea()
+
+                if manager.pendingLinkedInConnections.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "person.badge.clock")
+                            .font(.system(size: 36, weight: .light))
+                            .foregroundColor(LinkMeColors.s300)
+
+                        Text("No pending connections")
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .foregroundColor(LinkMeColors.s500)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(spacing: 14) {
+                            Card(padding: 0) {
+                                VStack(spacing: 0) {
+                                    ForEach(Array(manager.pendingLinkedInConnections.enumerated()), id: \.element.id) { index, connection in
+                                        LinkedInConnectionRow(connection: connection)
+
+                                        if index < manager.pendingLinkedInConnections.count - 1 {
+                                            Divider(inset: 63)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 18)
+                    }
+                }
             }
-            .navigationTitle("LinkedIn Connections")
+            .navigationTitle("LinkedIn connections")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -136,21 +360,25 @@ struct LinkedInConnectionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(Color.teal.opacity(0.15))
-                .frame(width: 48, height: 48)
+                .fill(LinkMeColors.t50)
+                .frame(width: 44, height: 44)
                 .overlay(
                     Text(PersonModel.computeInitials(connection.name))
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.teal)
+                        .font(.system(size: 15, weight: .semibold, design: .default))
+                        .foregroundColor(LinkMeColors.t600)
                 )
+                .overlay(Circle().stroke(LinkMeColors.t200, lineWidth: 1.5))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(connection.name)
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .foregroundColor(LinkMeColors.ink)
+
                 if let headline = connection.headline {
                     Text(headline)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13, design: .default))
+                        .foregroundColor(LinkMeColors.s500)
+                        .lineLimit(1)
                 }
             }
 
@@ -159,8 +387,17 @@ struct LinkedInConnectionRow: View {
             Button("Add") {
                 // TODO: Navigate to person or trigger claim flow
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .font(.system(size: 13, weight: .semibold, design: .default))
+            .foregroundColor(LinkMeColors.t600)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(LinkMeColors.t50)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(LinkMeColors.t200, lineWidth: 1.5)
+            )
         }
+        .padding(14)
     }
 }
