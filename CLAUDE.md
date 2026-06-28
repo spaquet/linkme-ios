@@ -18,6 +18,35 @@ LinkMe is a relationship operating system for high-stakes operators (founders, i
 - **Apple Intelligence** on-device: Foundation Models (~3B LLM), Speech-to-text, visual intelligence
 - **App Intents** for Siri integration (WWDC 2026)
 
+## Code Documentation Standard
+
+Use `///` triple-slash doc comments only (no `/* */` blocks). Minimal docs: only add comment if WHY is non-obvious.
+
+**Pattern**:
+- **Types**: One-line summary + optional paragraph + `- Important:` for critical constraints
+- **Properties**: One-line `///` above each var/let
+- **Functions/init**: Summary + `- Parameters:` / `- Returns:` / `- Throws:` as needed
+- **Inline comments**: Keep (e.g., `// teal, slate...`) — these clarify local logic
+
+Example:
+```swift
+/// One-line summary.
+///
+/// Optional longer description.
+///
+/// - Important: Critical constraint or invariant.
+struct Foo {
+    /// What this property holds.
+    var bar: String
+
+    /// Creates a Foo.
+    ///
+    /// - Parameters:
+    ///   - bar: Description of bar.
+    init(bar: String) { ... }
+}
+```
+
 ## Design System
 
 **Typography**: Geist (300-700 weight), Geist Mono. **Text Alignment**: Left-aligned by default; design files override.
