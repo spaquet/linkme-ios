@@ -75,6 +75,9 @@ struct PersonModel: Identifiable, Hashable {
     /// Next follow-up action or task.
     var followup: String = ""
 
+    /// LinkedIn profile URL if connected.
+    var linkedInProfileUrl: String?
+
     /// Apple Contacts identifier for sync matching (iOS 26+).
     var appleContactIdentifier: String?
 

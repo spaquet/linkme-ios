@@ -248,11 +248,59 @@ class DatabaseManager {
         END;
         """
 
-        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault, standaloneNotes, standaloneNotesCreatedIndex, peopleFTS, peopleFTSTriggerInsert, peopleFTSTriggerDelete, peopleFTSTriggerUpdate] {
+        let emailMessages = """
+        CREATE TABLE IF NOT EXISTS email_messages (
+            id TEXT PRIMARY KEY,
+            from_email TEXT NOT NULL,
+            subject TEXT,
+            body TEXT,
+            html_body TEXT,
+            timestamp DATETIME,
+            message_id TEXT,
+            scanned_at DATETIME,
+            scan_type TEXT,
+            linked_person_id TEXT,
+            FOREIGN KEY (linked_person_id) REFERENCES people(id)
+        );
+        """
+
+        let linkedInConnections = """
+        CREATE TABLE IF NOT EXISTS linkedin_connections (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            profile_url TEXT NOT NULL,
+            headline TEXT,
+            avatar_url TEXT,
+            extracted_at DATETIME,
+            email_subject TEXT,
+            linked_person_id TEXT,
+            dismissed INTEGER DEFAULT 0,
+            FOREIGN KEY (linked_person_id) REFERENCES people(id)
+        );
+        """
+
+        let nudges = """
+        CREATE TABLE IF NOT EXISTS nudges (
+            id TEXT PRIMARY KEY,
+            person_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            detail TEXT,
+            cta TEXT,
+            linked_thread_id TEXT,
+            dismissed_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES people(id),
+            FOREIGN KEY (linked_thread_id) REFERENCES threads(id)
+        );
+        """
+
+        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault, standaloneNotes, standaloneNotesCreatedIndex, peopleFTS, peopleFTSTriggerInsert, peopleFTSTriggerDelete, peopleFTSTriggerUpdate, emailMessages, linkedInConnections, nudges] {
             executeSQL(createTableSQL)
         }
 
         migratePeopleSchema()
+        migrateEmailSchema()
         migrateCardsSchema()
         backfillPersonTags()
         rebuildPeopleFTS()
@@ -751,6 +799,10 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
 
+    private func migrateEmailSchema() {
+        addColumnIfMissing(table: "people", column: "linkedin_profile_url", definition: "TEXT")
+    }
+
     private func migratePeopleSchema() {
         addColumnIfMissing(table: "people", column: "context", definition: "TEXT")
         addColumnIfMissing(table: "people", column: "personal", definition: "TEXT")
@@ -1186,6 +1238,265 @@ class DatabaseManager {
             return nil
         }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    // MARK: - Email Messages
+
+    /// Insert an email message record (deduplication via INSERT OR IGNORE).
+    ///
+    /// - Parameters:
+    ///   - email: The email message to persist.
+    func insertEmailMessage(_ email: EmailMessageModel) {
+        let sql = """
+        INSERT OR IGNORE INTO email_messages
+            (id, from_email, subject, timestamp, message_id, scan_type, linked_person_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, email.id)
+            bindText(stmt, 2, email.from)
+            bindText(stmt, 3, email.subject)
+            sqlite3_bind_int64(stmt, 4, Int64(email.timestamp.timeIntervalSince1970))
+            bindText(stmt, 5, email.messageId)
+            bindText(stmt, 6, email.scanType)
+            bindText(stmt, 7, email.linkedPersonId)
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    /// Returns true if an email with the given ID already exists.
+    ///
+    /// - Parameters:
+    ///   - id: The email record ID to check.
+    func emailMessageExists(id: String) -> Bool {
+        let sql = "SELECT 1 FROM email_messages WHERE id = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        var exists = false
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, id)
+            exists = sqlite3_step(stmt) == SQLITE_ROW
+        }
+        sqlite3_finalize(stmt)
+        return exists
+    }
+
+    // MARK: - LinkedIn Connections
+
+    /// Insert a LinkedIn connection record (deduplication via INSERT OR IGNORE).
+    ///
+    /// - Parameters:
+    ///   - connection: The connection to persist.
+    func insertLinkedInConnection(_ connection: LinkedInConnection) {
+        let sql = """
+        INSERT OR IGNORE INTO linkedin_connections
+            (id, name, profile_url, headline, avatar_url, extracted_at, email_subject, linked_person_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, connection.id)
+            bindText(stmt, 2, connection.name)
+            bindText(stmt, 3, connection.profileUrl)
+            bindText(stmt, 4, connection.headline)
+            bindText(stmt, 5, connection.avatarUrl)
+            sqlite3_bind_int64(stmt, 6, Int64(connection.extractedAt.timeIntervalSince1970))
+            bindText(stmt, 7, connection.emailSubject)
+            bindText(stmt, 8, connection.linkedPersonId)
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    /// Returns true if a LinkedIn connection with the given ID already exists.
+    ///
+    /// - Parameters:
+    ///   - id: The connection ID to check.
+    func linkedInConnectionExists(id: String) -> Bool {
+        let sql = "SELECT 1 FROM linkedin_connections WHERE id = ? LIMIT 1"
+        var stmt: OpaquePointer?
+        var exists = false
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, id)
+            exists = sqlite3_step(stmt) == SQLITE_ROW
+        }
+        sqlite3_finalize(stmt)
+        return exists
+    }
+
+    /// Fetch all pending (not dismissed) LinkedIn connections.
+    ///
+    /// - Returns: Array of connections ordered by extraction date descending.
+    func fetchPendingLinkedInConnections() -> [LinkedInConnection] {
+        let sql = """
+        SELECT id, name, profile_url, headline, avatar_url, extracted_at, email_subject, linked_person_id
+        FROM linkedin_connections
+        WHERE dismissed = 0
+        ORDER BY extracted_at DESC
+        """
+        var stmt: OpaquePointer?
+        var results: [LinkedInConnection] = []
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let name = columnText(stmt, 1) ?? ""
+                let profileUrl = columnText(stmt, 2) ?? ""
+                let headline = columnText(stmt, 3)
+                let avatarUrl = columnText(stmt, 4)
+                let extractedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(stmt, 5)))
+                let emailSubject = columnText(stmt, 6) ?? ""
+
+                var conn = LinkedInConnection(
+                    name: name,
+                    profileUrl: profileUrl,
+                    headline: headline,
+                    avatarUrl: avatarUrl,
+                    extractedAt: extractedAt,
+                    emailSubject: emailSubject
+                )
+                conn.linkedPersonId = columnText(stmt, 7)
+                results.append(conn)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return results
+    }
+
+    /// Mark a LinkedIn connection as dismissed.
+    ///
+    /// - Parameters:
+    ///   - id: The connection ID to dismiss.
+    func dismissLinkedInConnection(id: String) {
+        let sql = "UPDATE linkedin_connections SET dismissed = 1 WHERE id = ?"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, id)
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    // MARK: - Nudges
+
+    /// Insert a nudge record.
+    ///
+    /// - Parameters:
+    ///   - nudge: The nudge to persist.
+    func insertNudge(_ nudge: NudgeModel) {
+        let sql = """
+        INSERT OR IGNORE INTO nudges (id, person_id, kind, title, detail, cta, linked_thread_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, nudge.id)
+            bindText(stmt, 2, nudge.personId)
+            bindText(stmt, 3, nudge.kind)
+            bindText(stmt, 4, nudge.title)
+            bindText(stmt, 5, nudge.detail)
+            bindText(stmt, 6, nudge.cta)
+            sqlite3_bind_null(stmt, 7)
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
+    }
+
+    /// Fetch active (not dismissed) nudges for a person.
+    ///
+    /// - Parameters:
+    ///   - personId: The person to fetch nudges for.
+    ///
+    /// - Returns: Array of nudges ordered by creation date descending.
+    func fetchNudges(forPersonId personId: String) -> [NudgeModel] {
+        let sql = """
+        SELECT id, person_id, kind, title, detail, cta
+        FROM nudges
+        WHERE person_id = ? AND dismissed_at IS NULL
+        ORDER BY created_at DESC
+        """
+        var stmt: OpaquePointer?
+        var results: [NudgeModel] = []
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, personId)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let nudge = NudgeModel(
+                    id: columnText(stmt, 0) ?? UUID().uuidString,
+                    personId: columnText(stmt, 1) ?? personId,
+                    kind: columnText(stmt, 2) ?? "signal",
+                    title: columnText(stmt, 3) ?? "",
+                    detail: columnText(stmt, 4) ?? "",
+                    cta: columnText(stmt, 5) ?? ""
+                )
+                results.append(nudge)
+            }
+        }
+        sqlite3_finalize(stmt)
+        return results
+    }
+
+    // MARK: - Person email/company queries (EmailContactMatcher)
+
+    /// Fetch a person by exact email address match.
+    ///
+    /// - Parameters:
+    ///   - email: The email address to match.
+    ///
+    /// - Returns: The matching person, or nil.
+    func fetchPerson(byEmail email: String) -> PersonModel? {
+        let sql = """
+        SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at
+        FROM people
+        WHERE linkedin_profile_url IS NULL AND deleted_at IS NULL
+        LIMIT 0
+        """
+        // People table doesn't have an email column — search via people with matching apple contact or profile.
+        // Phase 1: return nil (no email column in people yet).
+        _ = sql
+        return nil
+    }
+
+    /// Fetch people whose company approximately matches the given string.
+    ///
+    /// - Parameters:
+    ///   - company: Company name to search (case-insensitive LIKE).
+    ///
+    /// - Returns: Array of matching people.
+    func fetchPeople(byCompanyApprox company: String) -> [PersonModel] {
+        let sql = """
+        SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at
+        FROM people
+        WHERE company LIKE ? AND deleted_at IS NULL
+        ORDER BY captured_at DESC
+        """
+        return fetchPeople(sql: sql, bindValues: ["%\(company)%"])
+    }
+
+    // MARK: - Thread insert
+
+    /// Insert a new follow-up thread.
+    ///
+    /// - Parameters:
+    ///   - thread: The thread to persist.
+    func insertThread(_ thread: ThreadModel) {
+        let sql = """
+        INSERT OR IGNORE INTO threads (id, person_id, prompt, status, created_at, due_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            bindText(stmt, 1, thread.id)
+            bindText(stmt, 2, thread.personId)
+            bindText(stmt, 3, thread.prompt)
+            bindText(stmt, 4, thread.status)
+            sqlite3_bind_int64(stmt, 5, Int64(thread.createdAt.timeIntervalSince1970))
+            if let dueAt = thread.dueAt {
+                sqlite3_bind_int64(stmt, 6, Int64(dueAt.timeIntervalSince1970))
+            } else {
+                sqlite3_bind_null(stmt, 6)
+            }
+            sqlite3_step(stmt)
+        }
+        sqlite3_finalize(stmt)
     }
 
     func clearAllData() {
