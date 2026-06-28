@@ -1,9 +1,21 @@
 import SwiftUI
 
+/// A container card with rounded corners, white background, and shadow.
+///
+/// Generic view that wraps content in a white surface with subtle shadow.
+/// Uses design system colors and spacing.
 struct Card<Content: View>: View {
+    /// Content view builder closure result.
     let content: Content
+
+    /// Inner padding in points (0 for no padding).
     let padding: CGFloat
 
+    /// Create a card with custom content.
+    ///
+    /// - Parameters:
+    ///   - padding: Inner padding (default 16).
+    ///   - content: Content view builder.
     init(padding: CGFloat = 16, @ViewBuilder content: () -> Content) {
         self.content = content()
         self.padding = padding

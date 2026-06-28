@@ -1,16 +1,32 @@
 import SwiftUI
 
+/// Helper to present followup sheet with person and nudge context.
 struct FollowupSheetData: Identifiable {
+    /// Unique ID for sheet presentation.
     let id = UUID()
+
+    /// The person to follow up with.
     let person: PersonModel
+
+    /// Optional nudge that prompted this followup.
     let nudge: NudgeModel?
 }
 
+/// Main tab-based view after onboarding.
+///
+/// Hosts four tabs: Today (home), People (contact list), Threads (notifications), Privacy/Settings.
+/// Manages top-level navigation stack for person profiles and modal sheets (capture, briefing, followup).
 struct MainTabView: View {
+    /// App state (user identity, onboarding).
     let appState: AppState
+
+    /// Currently selected tab index.
     @State private var selectedTab = 0
+
+    /// Navigation manager for sheets and stack.
     @State private var navigationManager = NavigationManager()
 
+    /// Main view with tab bar, nav stack, and sheets.
     var body: some View {
         NavigationStack(path: $navigationManager.navigationPath) {
             ZStack(alignment: .bottom) {

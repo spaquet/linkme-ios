@@ -1,17 +1,34 @@
 import SwiftUI
 
+/// Focus field for onboarding form validation.
 enum OnboardingCardField: Hashable {
+    /// First name input.
     case firstName
+    /// Last name input.
     case lastName
+    /// Job role input.
     case role
+    /// Company input.
     case company
+    /// Tagline input.
     case tagline
+    /// Email input.
     case email
 }
 
+/// Four-slide onboarding flow ending with card creation.
+///
+/// Slide 1: Welcome. Slide 2: Capture demo. Slide 3: Briefing + privacy.
+/// Slide 4: Create user card (name, role, company, email, tagline).
+/// Saves first card to SQLite and marks onboarding complete.
 struct OnboardingView: View {
+    /// App state to update on completion.
     let appState: AppState
+
+    /// Callback when onboarding finishes.
     var onDone: () -> Void
+
+    /// Current slide index (0-3).
     @State private var currentSlide = 0
     @State private var firstName = ""
     @State private var lastName = ""

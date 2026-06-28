@@ -1,8 +1,16 @@
 import SwiftUI
 import UIKit
 
+/// Just-in-time briefing sheet for a person.
+///
+/// Shows AI-generated summary ("The one thing to remember"), open threads/follow-ups,
+/// shared connections (mutual contacts), and actions (view full profile, brief again, add note).
+/// Modal sheet triggered from Today view "Up Next" card or via AI Briefing.
 struct BriefingView: View {
+    /// Person to brief on.
     let person: PersonModel
+
+    /// Navigation manager for opening full profile.
     let navigationManager: NavigationManager
     @State private var briefingSummary = "Lead with the fund close. He owes you the data-infra memo; you offered an intro."
     @State private var openThreads: [ThreadModel] = []

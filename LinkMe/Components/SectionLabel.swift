@@ -1,8 +1,17 @@
 import SwiftUI
 
+/// A small uppercase section header label.
+///
+/// Used to mark section titles in lists and grouped content.
+/// Slate-500 color, semibold, small uppercase with letter spacing.
 struct SectionLabel: View {
+    /// Label text.
     let text: String
 
+    /// Create a section label.
+    ///
+    /// - Parameters:
+    ///   - text: Label text (will be uppercased).
     init(_ text: String) {
         self.text = text
     }

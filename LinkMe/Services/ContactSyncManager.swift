@@ -2,14 +2,22 @@ import Combine
 import Contacts
 import Foundation
 
+/// Current state of Apple Contacts sync.
 enum ContactSyncState: Equatable {
+    /// Sync is disabled by user.
     case off
+    /// Sync is enabled but permission not yet granted.
     case needsPermission
+    /// Sync is currently in progress.
     case syncing
+    /// Sync completed successfully.
     case synced
+    /// User denied permission.
     case denied
+    /// Sync failed with an error.
     case failed(String)
 
+    /// Human-readable label for the current sync state.
     var label: String {
         switch self {
         case .off: "Off"
@@ -22,21 +30,47 @@ enum ContactSyncState: Equatable {
     }
 }
 
+/// Statistics from the latest Apple Contacts sync operation.
 struct ContactSyncStats {
+    /// Number of contacts newly imported into LinkMe.
     var imported = 0
+
+    /// Number of existing contacts updated.
     var updated = 0
+
+    /// Number of LinkMe person records exported back to Apple Contacts.
     var exported = 0
+
+    /// Total number of contacts available in Apple Contacts.
     var total = 0
+
+    /// Number of contacts currently stored in LinkMe with Apple Contacts links.
     var stored = 0
+
+    /// Timestamp of the most recent sync completion.
     var lastSyncedAt: Date?
 }
 
+/// Manages incremental sync between LinkMe and Apple Contacts.
+///
+/// Bidirectional sync: imports new/updated contacts into LinkMe people,
+/// and exports LinkMe person details back to Apple Contacts.
+/// Uses change history API for incremental sync on iOS 26+.
+///
+/// - Important: Requires Contacts permission. User must grant explicit access.
+///   Respects limited contact access (iOS 18+).
 @MainActor
 final class ContactSyncManager: ObservableObject {
+    /// Shared singleton instance.
     static let shared = ContactSyncManager()
 
+    /// Whether user has enabled sync.
     @Published private(set) var isEnabled: Bool
+
+    /// Current sync state (off, needs permission, syncing, synced, denied, failed).
     @Published private(set) var state: ContactSyncState
+
+    /// Stats from the latest sync operation.
     @Published private(set) var stats: ContactSyncStats
 
     private let store = CNContactStore()
@@ -57,6 +91,13 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
+    /// Enables or disables Apple Contacts sync.
+    ///
+    /// When enabled, starts listening to Apple Contacts changes and performs
+    /// initial sync. When disabled, stops listening and clears state.
+    ///
+    /// - Parameters:
+    ///   - enabled: Whether to enable sync.
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: enabledKey)
@@ -78,6 +119,9 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
+    /// Manually trigger sync if it's currently enabled.
+    ///
+    /// No-op if sync is disabled.
     func refreshIfEnabled() {
         guard isEnabled else {
             state = .off
@@ -89,6 +133,9 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
+    /// Force a full resync with Apple Contacts regardless of debounce state.
+    ///
+    /// Use when user explicitly requests a manual refresh.
     func forceResync() {
         Task {
             await sync()
@@ -139,6 +186,10 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
+    /// Perform full sync with Apple Contacts.
+    ///
+    /// Fetches all contacts, compares with LinkMe database, imports new/updated,
+    /// and exports LinkMe person data back to Contacts. Updates stats and state.
     nonisolated func sync() async {
         let isEnabledSnapshot = await MainActor.run { self.isEnabled }
         guard isEnabledSnapshot else {

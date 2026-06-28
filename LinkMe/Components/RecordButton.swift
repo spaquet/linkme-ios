@@ -1,10 +1,20 @@
 import SwiftUI
 
+/// Large animated microphone button for voice capture.
+///
+/// Idle state: teal gradient with pulsing ring animation. Recording state: dark ink with stop icon.
+/// Used as the primary CTA in Capture view.
 struct RecordButton: View {
+    /// Whether pulse animation is currently playing.
     @State private var isPulsing = false
+
+    /// Whether currently recording audio.
     let isRecording: Bool
+
+    /// Callback when button is tapped (start/stop recording).
     let action: () -> Void
 
+    /// The animated button with state-dependent appearance.
     var body: some View {
         ZStack {
             // Pulse ring (idle only)

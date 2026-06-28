@@ -1,7 +1,14 @@
 import SwiftUI
 
+/// Notifications center: follow-ups and open threads.
+///
+/// Displays nudges and open action items (follow-ups needing attention). Actions: open brief, mark done, snooze.
+/// Shows badge count on Threads tab.
 struct ThreadsView: View {
+    /// Navigation manager for opening person briefings.
     let navigationManager: NavigationManager
+
+    /// Current nudges/threads requiring action.
     @State private var nudges: [NudgeModel] = MockDataManager.mockNudges
 
     var body: some View {

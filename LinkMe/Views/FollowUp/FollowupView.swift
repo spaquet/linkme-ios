@@ -1,8 +1,15 @@
-import SwiftUI
-
+/// Draft and send a follow-up message to a person.
+///
+/// AI-generated message with tone selection (Warm, Brief, Formal), channel selection, and send/schedule options.
+/// Triggered from briefing view or nudges. Marked the follow-up as "sent" in person's thread.
 struct FollowupView: View {
+    /// Person to follow up with.
     let person: PersonModel
+
+    /// Optional nudge context (what type of follow-up).
     let nudge: NudgeModel?
+
+    /// Callback when user dismisses sheet.
     let onDismiss: () -> Void
 
     @State private var selectedTone: String = "Warm"

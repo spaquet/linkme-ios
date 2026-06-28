@@ -3,22 +3,57 @@ import Foundation
 import FoundationModels
 #endif
 
+/// Structured person information extracted from a voice transcript.
+///
+/// Contains fields extracted from a 10-second capture note, such as name, company, role,
+/// context, follow-up actions, personal details, and tags. Used as the output of AI extraction.
 struct ExtractedPersonData {
+    /// Person's full name.
     var name: String?
+
+    /// Company or organization name.
     var company: String?
+
+    /// Job title or role.
     var role: String?
+
+    /// Current business context (fundraising, hiring, launching, etc.).
     var liveContext: String?
+
+    /// Promised next action, introduction, reminder, or follow-up.
     var followUp: String?
+
+    /// Memorable personal detail (family, interests, location, etc.).
     var personalDetail: String?
+
+    /// Relationship tags (Founder, Investor, AI, Healthtech, Follow-up, etc.).
     var tags: [String] = []
 }
 
+/// Extracts structured person data from voice transcripts.
+///
+/// On-device AI extraction using Foundation Models (iOS 26+) with fallback to regex-based parsing.
+/// Handles name, company, role, context, follow-ups, personal details, and tags.
+///
+/// - Note: Runs on-device using Apple Intelligence. No data is sent to cloud.
 @Observable
 class AIExtractionManager {
+    /// Whether extraction is currently in progress.
     var isExtracting = false
+
+    /// Result of the last extraction, if any.
     var extractedData: ExtractedPersonData?
+
+    /// Error message if extraction failed and no fallback was used.
     var error: String?
 
+    /// Extracts structured person data from a voice transcript.
+    ///
+    /// Tries Foundation Models first; falls back to regex parsing if unavailable.
+    /// Extraction includes name, company, role, business context, follow-ups, personal details, and tags.
+    ///
+    /// - Parameters:
+    ///   - text: The voice transcript to extract from.
     func extractFromTranscription(_ text: String) async {
         isExtracting = true
         defer { isExtracting = false }
@@ -31,6 +66,15 @@ class AIExtractionManager {
         self.extractedData = Self.fallbackExtract(text)
     }
 
+    /// Fallback regex-based extraction when Foundation Models are unavailable.
+    ///
+    /// Uses heuristic pattern matching to extract name, company, role, and context.
+    /// Always returns a result; fields are nil or empty if not found.
+    ///
+    /// - Parameters:
+    ///   - text: The transcript to parse.
+    ///
+    /// - Returns: Extracted data with best-effort results.
     static func fallbackExtract(_ text: String) -> ExtractedPersonData {
         let cleanedText = cleanFreeformText(text)
         let words = words(in: cleanedText)

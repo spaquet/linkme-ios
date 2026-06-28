@@ -1,8 +1,17 @@
 import SwiftUI
 
+/// Privacy and permissions settings.
+///
+/// Toggles for on-device processing, Apple Contacts sync, Calendar access, Siri, and Face ID.
+/// "Reset all data" option for logout. Shows active permission status.
 struct PrivacyView: View {
+    /// App state (user for reset context).
     let appState: AppState
+
+    /// Contact sync state and controls.
     @StateObject private var contactSync = ContactSyncManager.shared
+
+    /// Calendar access state and controls.
     @StateObject private var calendarManager = CalendarManager.shared
     @State private var cloudEnrichment = false
     @State private var lifeSignals = false

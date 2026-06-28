@@ -1,12 +1,33 @@
 import SwiftUI
 
+/// A rounded-square avatar displaying initials with a tone-based color.
+///
+/// Shows two-letter initials derived from a name. Supports six tone colors (teal, slate, amber, indigo, rose, sky).
+/// Optionally displays a teal accent ring. Tone is auto-assigned based on name if not specified.
 struct Avatar: View {
+    /// Full name (for computing initials and tone).
     let name: String
+
+    /// Size in points (width and height).
     let size: CGFloat
+
+    /// Tone color: "teal", "slate", "amber", "indigo", "rose", "sky". Auto-assigned if nil.
     let tone: String?
+
+    /// Whether to show a teal accent ring around the avatar.
     let ring: Bool
+
+    /// Custom initials to display. If nil, computed from name.
     let initials: String?
 
+    /// Initialize with full name.
+    ///
+    /// - Parameters:
+    ///   - name: Full name for initials and tone computation.
+    ///   - size: Avatar size in points (default 44).
+    ///   - tone: Color tone (default auto-assigned from name).
+    ///   - ring: Show accent ring (default false).
+    ///   - initials: Custom initials (default computed from name).
     init(name: String, size: CGFloat = 44, tone: String? = nil, ring: Bool = false, initials: String? = nil) {
         self.name = name
         self.size = size
@@ -15,6 +36,15 @@ struct Avatar: View {
         self.initials = initials
     }
 
+    /// Initialize with separate first and last name.
+    ///
+    /// - Parameters:
+    ///   - firstName: First name.
+    ///   - lastName: Optional last name.
+    ///   - size: Avatar size in points (default 44).
+    ///   - tone: Color tone (default auto-assigned).
+    ///   - ring: Show accent ring (default false).
+    ///   - initials: Custom initials (default computed).
     init(firstName: String, lastName: String? = nil, size: CGFloat = 44, tone: String? = nil, ring: Bool = false, initials: String? = nil) {
         let fullName = lastName.map { "\(firstName) \($0)" } ?? firstName
         self.name = fullName
@@ -24,6 +54,7 @@ struct Avatar: View {
         self.initials = initials
     }
 
+    /// Auto-assign tone based on name's first character.
     private static func toneFor(_ name: String) -> String {
         let tones = ["teal", "slate", "amber", "indigo", "rose", "sky"]
         guard let firstChar = name.trimmingCharacters(in: .whitespaces).first?.uppercased().first?.asciiValue else {

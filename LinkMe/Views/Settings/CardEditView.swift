@@ -2,8 +2,15 @@ import SwiftUI
 import CoreLocation
 import Combine
 
+/// Edit or create an identity card.
+///
+/// Form to edit all card fields (name, role, company, social links, etc.).
+/// Saves changes to SQLite via ``DatabaseManager``. Creates new card if card is nil.
 struct CardEditView: View {
+    /// Environment dismiss function.
     @Environment(\.dismiss) var dismiss
+
+    /// Card to edit (nil for create new).
     let card: CardModel?
 
     @State private var name = ""

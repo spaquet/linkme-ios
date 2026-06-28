@@ -1,17 +1,39 @@
 import SwiftUI
 
+/// A primary call-to-action button.
+///
+/// Full-width or fixed-width button with ink or teal tone. Respects enabled state.
 struct PrimaryButton: View {
+    /// Button title text.
     let title: String
+
+    /// Callback when button is tapped.
     let action: () -> Void
+
+    /// Button color tone.
     let tone: ButtonTone
+
+    /// Whether button expands to full width (default true).
     let fullWidth: Bool
+
+    /// Environment enabled state affects opacity.
     @Environment(\.isEnabled) private var isEnabled
 
+    /// Button tone options.
     enum ButtonTone {
+        /// Dark ink color.
         case ink
+        /// Teal (primary action).
         case teal
     }
 
+    /// Create a primary button.
+    ///
+    /// - Parameters:
+    ///   - title: Button text.
+    ///   - tone: Color tone (default ink).
+    ///   - fullWidth: Expand to width (default true).
+    ///   - action: Callback when tapped.
     init(_ title: String, tone: ButtonTone = .ink, fullWidth: Bool = true, action: @escaping () -> Void) {
         self.title = title
         self.tone = tone

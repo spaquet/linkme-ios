@@ -1,8 +1,17 @@
 import SwiftUI
 
+/// A privacy badge indicating data stays on-device.
+///
+/// Displays a lock icon with "On this device" label (or custom label) in teal.
+/// Used to signal on-device processing and data privacy to users.
 struct OnDeviceChip: View {
+    /// Label text (default "On this device").
     let label: String
 
+    /// Create an on-device privacy chip.
+    ///
+    /// - Parameters:
+    ///   - label: Text label (default "On this device").
     init(_ label: String = "On this device") {
         self.label = label
     }

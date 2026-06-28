@@ -1,14 +1,25 @@
 import SwiftUI
 
+/// A calendar event in Today view.
+///
+/// Represents an upcoming meeting, meal, or activity with person reference for briefing.
 struct TodayCalendarEvent: Identifiable {
+    /// Event category and its icon.
     enum EventKind {
+        /// Meeting or call.
         case meeting
+        /// Lunch meal.
         case lunch
+        /// Dinner meal.
         case dinner
+        /// Coffee break.
         case coffee
+        /// Social drinks.
         case drinks
+        /// Sports or fitness.
         case sport
 
+        /// SF Symbol icon name for this event kind.
         var icon: String {
             switch self {
             case .meeting: return "calendar"
@@ -20,6 +31,7 @@ struct TodayCalendarEvent: Identifiable {
             }
         }
 
+        /// Human-readable label for this event kind.
         var label: String {
             switch self {
             case .meeting: return "Meeting"
@@ -32,14 +44,31 @@ struct TodayCalendarEvent: Identifiable {
         }
     }
 
+    /// Unique identifier.
     let id: String
+
+    /// Event start time.
     let startsAt: Date
+
+    /// Event title or meeting name.
     let title: String
+
+    /// Event location.
     let location: String
+
+    /// Person associated with event (if known in LinkMe).
     let person: PersonModel?
+
+    /// Number of attendees.
     let attendeeCount: Int
+
+    /// Event category.
     let kind: EventKind
+
+    /// Communication channel (Zoom, Teams, etc.).
     let channel: String
+
+    /// Just-in-time briefing text.
     let briefing: String
 
     var formattedTime: String {
@@ -117,9 +146,18 @@ struct TodayCalendarEvent: Identifiable {
     }
 }
 
+/// Home tab: briefing-forward view of upcoming meetings and nudges.
+///
+/// Displays "Up Next" meeting with AI briefing, upcoming events, open follow-ups,
+/// and recently captured people. Integrates calendar access for "Brief me before 3pm" flow.
 struct TodayView: View {
+    /// Shared navigation state for modals and stack navigation.
     let navigationManager: NavigationManager
+
+    /// App identity and state.
     let appState: AppState
+
+    /// Binding to selected tab (to navigate to People tab for search).
     @Binding var selectedTab: Int
     @State private var recentCaptures: [PersonModel] = []
     @State private var nudges: [NudgeModel] = MockDataManager.mockNudges

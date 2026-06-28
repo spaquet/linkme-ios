@@ -1,16 +1,31 @@
 import Foundation
 
+/// Sort order options for people list.
 enum PersonSortOption: String, CaseIterable {
+    /// Most recently captured.
     case capturedRecent = "Most recent"
+    /// Least recently captured (oldest first).
     case capturedOldest = "Least recent"
+    /// Alphabetical by first name (A → Z).
     case nameAZ = "A → Z"
+    /// Reverse alphabetical by first name (Z → A).
     case nameZA = "Z → A"
+    /// Most recent last contact.
     case lastContactRecent = "Last contact"
 
+    /// String identifier for UI.
     var id: String { self.rawValue }
 }
 
+/// Utilities for sorting people lists.
 struct PersonSortManager {
+    /// Sort a list of people by the given option.
+    ///
+    /// - Parameters:
+    ///   - people: The people to sort.
+    ///   - option: The sort criteria.
+    ///
+    /// - Returns: Sorted array of people.
     static func sort(_ people: [PersonModel], by option: PersonSortOption) -> [PersonModel] {
         switch option {
         case .capturedRecent:

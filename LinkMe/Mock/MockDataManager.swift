@@ -1,6 +1,11 @@
 import Foundation
 
+/// Development/preview mock data.
+///
+/// Provides sample people, nudges, and events for previews and testing.
+/// Not used in production builds.
 enum MockDataManager {
+    /// Sample people with tags, timelines, and AI-extracted data.
     static let mockPeople: [PersonModel] = {
         var people = [
             PersonModel(id: "1", name: "Marcus Chen", company: "Meridian Ventures", role: "General Partner"),

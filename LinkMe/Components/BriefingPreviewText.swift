@@ -1,11 +1,29 @@
 import SwiftUI
 
+/// Two-line briefing preview with emphasized keyword.
+///
+/// Displays talking points in a structured format: prefix + emphasized word + suffix + second line.
+/// Used in "Up Next" section of Today view.
 struct BriefingPreviewText: View {
+    /// Text before the emphasized part.
     let prefix: String
+
+    /// Word or phrase to emphasize (bold, ink color).
     let emphasis: String
+
+    /// Text after emphasis on first line.
     let firstLineSuffix: String
+
+    /// Second line of text.
     let secondLine: String
 
+    /// Create a briefing preview.
+    ///
+    /// - Parameters:
+    ///   - prefix: First part of text.
+    ///   - emphasis: Emphasized word (bolded).
+    ///   - firstLineSuffix: Rest of first line.
+    ///   - secondLine: Second line.
     init(
         prefix: String = "Lead with the ",
         emphasis: String = "fund close",

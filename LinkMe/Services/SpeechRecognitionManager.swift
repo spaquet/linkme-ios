@@ -3,16 +3,30 @@ import Speech
 @preconcurrency import AVFoundation
 import CoreMedia
 
+/// Permission type required for speech recording.
 enum PermissionType: Equatable {
+    /// Microphone recording permission.
     case microphone
+    /// Speech recognition permission.
     case speechRecognition
 }
 
+/// On-device speech-to-text transcription using Apple Speech framework.
+///
+/// Records microphone audio, runs speech recognition, and streams back recognized text.
+/// Uses the system speech recognizer with configurable locale. Feeds transcripts into ``AIExtractionManager``.
+///
+/// - Note: Requires microphone permission. Recording happens on-device; no data sent to cloud.
 @Observable
 @MainActor
 class SpeechRecognitionManager {
+    /// Whether recording is currently active.
     var isRecording = false
+
+    /// Real-time recognized text (updates as user speaks).
     var recognizedText = ""
+
+    /// Error message if recording or transcription failed.
     var error: String?
 
     private let audioEngine = AVAudioEngine()
@@ -24,6 +38,10 @@ class SpeechRecognitionManager {
     private var finalizedTranscript = ""
     private var volatileTranscript = ""
 
+    /// Request microphone recording permission.
+    ///
+    /// - Parameters:
+    ///   - completion: Called with nil if granted, or the missing permission type if denied.
     func requestAuthorization(completion: @escaping (PermissionType?) -> Void) {
         AVAudioApplication.requestRecordPermission { granted in
             guard granted else {
@@ -39,6 +57,10 @@ class SpeechRecognitionManager {
         }
     }
 
+    /// Start recording and transcribing from the microphone.
+    ///
+    /// Initializes speech recognizer, starts audio engine, and begins streaming
+    /// recognized text to ``recognizedText``. May request speech model download.
     func startRecording() {
         recognizedText = ""
         error = nil
@@ -55,6 +77,10 @@ class SpeechRecognitionManager {
         }
     }
 
+    /// Stop recording and finalize the transcript.
+    ///
+    /// Closes the audio stream, waits for final recognition results, and updates ``recognizedText``.
+    /// Call this when the user lifts their finger from the mic button.
     func stopRecording() async {
         guard isRecording || analyzer != nil else { return }
 
@@ -75,6 +101,10 @@ class SpeechRecognitionManager {
         clearAnalyzerReferences()
     }
 
+    /// Cancel recording without finalizing the transcript.
+    ///
+    /// Clears all state and discards the current recording. Use when user closes
+    /// the capture screen without sending.
     func cancelRecording() {
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)

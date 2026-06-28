@@ -1,7 +1,16 @@
 import Foundation
 import SQLite3
 
+/// Singleton manager for all SQLite database operations.
+///
+/// Handles schema initialization, CRUD operations for people, notes, cards, threads, shares,
+/// contacts, and relationships. Thread-safe for concurrent reads; synchronous writes.
+///
+/// - Important: This is the single source of truth for all persistent data.
+///   ``CardModel`` objects are stored ONLY in SQLite, never in UserDefaults.
+///   Never store ``CardModel`` in ``AppState`` — always read from this manager.
 class DatabaseManager {
+    /// Shared singleton instance.
     static let shared = DatabaseManager()
 
     private var db: OpaquePointer?
@@ -249,6 +258,12 @@ class DatabaseManager {
         rebuildPeopleFTS()
     }
 
+    /// Execute arbitrary SQL synchronously.
+    ///
+    /// Use for raw SQL operations not covered by higher-level methods. Prints errors to console.
+    ///
+    /// - Parameters:
+    ///   - sql: SQL statement to execute.
     func executeSQL(_ sql: String) {
         var errorMessage: UnsafeMutablePointer<Int8>?
         if sqlite3_exec(db, sql, nil, nil, &errorMessage) != SQLITE_OK {
@@ -259,6 +274,10 @@ class DatabaseManager {
         }
     }
 
+    /// Insert a new person into the database.
+    ///
+    /// - Parameters:
+    ///   - person: The person to insert.
     func insertPerson(_ person: PersonModel) {
         let sql = """
         INSERT INTO people (id, name, company, role, tone, initials, captured_at, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
@@ -292,6 +311,13 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
 
+    /// Insert a new person or update an existing one if already present.
+    ///
+    /// Checks if person exists by ID; inserts new record or updates existing one.
+    /// This is the primary method for persisting persons from capture or sync.
+    ///
+    /// - Parameters:
+    ///   - person: The person to insert or update.
     func upsertPerson(_ person: PersonModel) {
         let checkExistsSql = "SELECT 1 FROM people WHERE id = ?"
         var checkStatement: OpaquePointer?
@@ -369,6 +395,14 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
 
+    /// Fetch a person by their Apple Contacts identifier.
+    ///
+    /// Used during contact sync to find existing records.
+    ///
+    /// - Parameters:
+    ///   - appleContactIdentifier: The Apple Contacts identifier.
+    ///
+    /// - Returns: The matching person, or nil if not found.
     func fetchPerson(appleContactIdentifier: String) -> PersonModel? {
         fetchPeople().first { $0.appleContactIdentifier == appleContactIdentifier }
     }
@@ -402,6 +436,9 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
 
+    /// Fetch all active people (not soft-deleted).
+    ///
+    /// - Returns: Array of all active persons, ordered by most recent update.
     func fetchPeople() -> [PersonModel] {
         let sql = """
         SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at
@@ -963,6 +1000,12 @@ class DatabaseManager {
 
     // MARK: - Card Operations
 
+    /// Insert a new card into the database.
+    ///
+    /// - Important: Cards are stored ONLY in SQLite. Never store cards in UserDefaults.
+    ///
+    /// - Parameters:
+    ///   - card: The card to insert.
     func insertCard(_ card: CardModel) {
         let sql = """
         INSERT INTO cards (id, name, nickname, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at)
@@ -1053,6 +1096,9 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
 
+    /// Fetch all active cards (not soft-deleted).
+    ///
+    /// - Returns: Array of all active cards.
     func fetchCards() -> [CardModel] {
         let sql = """
         SELECT id, name, nickname, first_name, last_name, email, phone, avatar, role, company, bio, tagline, location, timezone, pronouns, social_links, payment_links, chat_apps, is_default, shared_publicly, created_at, updated_at

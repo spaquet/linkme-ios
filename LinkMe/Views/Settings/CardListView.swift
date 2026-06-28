@@ -1,8 +1,17 @@
 import SwiftUI
 
+/// Manage user's identity cards.
+///
+/// List all cards with edit/delete/set-default options. Loads from SQLite via ``DatabaseManager``.
+/// Never modifies cards in UserDefaults — always persists via database.
 struct CardListView: View {
+    /// App state (user identity).
     let appState: AppState
+
+    /// Environment dismiss function.
     @Environment(\.dismiss) var dismiss
+
+    /// All active cards from database.
     @State private var cards: [CardModel] = []
     @State private var cardToEdit: CardModel?
     @State private var showCardEditView = false

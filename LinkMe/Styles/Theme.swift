@@ -1,7 +1,10 @@
 import SwiftUI
 
+/// Design system color palette.
+///
+/// Includes neutrals (slate/ink), teal accent (on-device/AI signal), accents (amber, rose), and semantic colors (canvas, surface).
 struct LinkMeColors {
-    // Neutrals (slate)
+    /// Headline and primary text color (#0f1720).
     static let ink = Color(#colorLiteral(red: 0.06, green: 0.09, blue: 0.13, alpha: 1)) // #0f1720
     static let s900 = Color(#colorLiteral(red: 0.07, green: 0.09, blue: 0.15, alpha: 1)) // #111827
     static let s800 = Color(#colorLiteral(red: 0.12, green: 0.16, blue: 0.22, alpha: 1)) // #1f2937
@@ -39,28 +42,60 @@ struct LinkMeColors {
     static let surface = Color.white
 }
 
+/// Design system shadow definitions.
+///
+/// Three semantic shadows: sm (subtle), md (default), lg (elevation).
 struct LinkMeShadows {
+    /// Subtle shadow (1px blur).
     static let sm: [Double] = [0, 1, 2] // 0 1px 2px rgba(15,23,32,.05)
+
+    /// Default shadow (dual layer for depth).
     static let md: [Double] = [0, 6, 16, -6, 0, 2, 5, -2] // dual shadow
+
+    /// Elevation shadow (for floating elements).
     static let lg: [Double] = [0, 18, 40, -12, 0, 6, 14, -8] // dual shadow
 }
 
+/// Design system typography.
 struct LinkMeTypography {
+    /// Primary font family (Geist, 300-700 weight).
     static let fontFamily = "Geist"
+
+    /// Monospace font family (Geist Mono).
     static let monoFamily = "Geist Mono"
 }
 
+/// Design system layout constants.
 struct LinkMeLayout {
+    /// Status bar height (56pt).
     static let statusBarHeight: CGFloat = 56
+
+    /// Tab bar height (78pt).
     static let tabBarHeight: CGFloat = 78
+
+    /// Home safe area inset (30pt).
     static let homeInset: CGFloat = 30
+
+    /// Standard corner radius (16pt).
     static let cornerRadius: CGFloat = 16
+
+    /// Card corner radius (18pt).
     static let cardRadius: CGFloat = 18
 }
 
+/// Central theme namespace for all design tokens.
+///
+/// Access colors, shadows, fonts, and layout constants via Theme.colors, Theme.shadows, etc.
 struct Theme {
+    /// Color palette.
     static let colors = LinkMeColors()
+
+    /// Shadow definitions.
     static let shadows = LinkMeShadows()
+
+    /// Typography settings.
     static let typography = LinkMeTypography()
+
+    /// Layout constants.
     static let layout = LinkMeLayout()
 }

@@ -1,9 +1,18 @@
 import SwiftUI
 import Combine
 
+/// Add or edit a note for a person.
+///
+/// Mode selection: voice or text. Records 10-second note, extracts data, optionally tags.
+/// Saves to database as ``NoteModel`` linked to person.
 struct AddNoteView: View {
+    /// Person to add note for.
     let person: PersonModel
+
+    /// Binding to dismiss the sheet.
     @Binding var isPresented: Bool
+
+    /// Speech recognition engine (if voice mode).
     @State private var speechManager = SpeechRecognitionManager()
     @State private var phase: AddNotePhase = .selectMode
     @State private var seconds = 0

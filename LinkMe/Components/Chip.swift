@@ -1,18 +1,39 @@
 import SwiftUI
 
+/// A small badge or tag chip with optional icon.
+///
+/// Displays a label with configurable tone and optional SF Symbol icon.
+/// Used for tags, labels, and small informational badges.
 struct Chip: View {
+    /// Label text.
     let label: String
+
+    /// Chip color tone.
     let tone: ChipTone
+
+    /// Optional SF Symbol icon name.
     let icon: String?
 
+    /// Chip color tone options.
     enum ChipTone {
+        /// Neutral slate tone.
         case slate
+        /// Teal (on-device/AI signal).
         case teal
+        /// Amber accent.
         case amber
+        /// Dark ink/text tone.
         case ink
+        /// White background.
         case white
     }
 
+    /// Create a chip.
+    ///
+    /// - Parameters:
+    ///   - label: Chip text.
+    ///   - tone: Color tone (default slate).
+    ///   - icon: Optional SF Symbol name.
     init(_ label: String, tone: ChipTone = .slate, icon: String? = nil) {
         self.label = label
         self.tone = tone

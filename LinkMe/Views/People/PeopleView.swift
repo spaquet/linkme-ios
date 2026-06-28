@@ -1,9 +1,20 @@
 import SwiftUI
 
+/// Browsable contact list with search, filter, and sort.
+///
+/// Searchable list of all captured people. Supports tag-based filtering (Investors, Founders, etc.),
+/// sorting (recent, name, last contact), and pagination. Integrates with Apple Contacts sync.
 struct PeopleView: View {
+    /// Navigation manager for opening person details and sheets.
     @Bindable var navigationManager: NavigationManager
+
+    /// Binding to main tab selection (for contextual navigation).
     @Binding var selectedTab: Int
+
+    /// Apple Contacts sync state and stats.
     @StateObject private var contactSync = ContactSyncManager.shared
+
+    /// Current page of people list.
     @State private var people: [PersonModel] = []
     @State private var totalPeopleCount = 0
     @State private var searchText = ""

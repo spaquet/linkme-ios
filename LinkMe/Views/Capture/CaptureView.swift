@@ -1,9 +1,19 @@
 import SwiftUI
 import Combine
 
+/// Voice-to-card capture interface.
+///
+/// Records 10-second voice note, transcribes with on-device speech recognition,
+/// extracts structured person data with AI (or regex fallback), displays result card,
+/// and saves to database.
 struct CaptureView: View {
+    /// Speech recognition engine (mic → text).
     @State private var speechManager = SpeechRecognitionManager()
+
+    /// AI extraction engine (text → structured data).
     @State private var aiManager = AIExtractionManager()
+
+    /// Current phase: idle, recording, processing, or result.
     @State private var phase: CapturePhase = .idle
     @State private var seconds = 0
     @State private var showErrorAlert = false
