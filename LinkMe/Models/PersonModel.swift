@@ -196,3 +196,61 @@ struct NudgeModel: Identifiable {
         self.cta = cta
     }
 }
+
+/// A standalone note not tied to any person or contact.
+///
+/// Standalone notes are free-form text entries for capturing thoughts, reminders, or context
+/// that don't belong to a specific person's record. They can be searched and filtered by creation date.
+///
+/// - Note: Unlike ``NoteModel``, standalone notes have no foreign key relationship and are
+///   managed independently in the database.
+struct StandaloneNoteModel: Identifiable {
+    /// Unique identifier for this note.
+    let id: String
+
+    /// User-provided text content of the note.
+    var text: String
+
+    /// Optional speech-to-text transcription if note was created via voice.
+    var transcription: String?
+
+    /// Optional structured data extracted by AI from the note content.
+    var extractedJson: [String: String]
+
+    /// Timestamp when the note was created.
+    var createdAt: Date
+
+    /// Optional timestamp when the note was last modified.
+    var updatedAt: Date?
+
+    /// Optional tags for categorizing or filtering standalone notes.
+    var tags: [String]
+
+    /// Creates a new standalone note.
+    ///
+    /// - Parameters:
+    ///   - id: Unique identifier. Auto-generated if not provided.
+    ///   - text: The note content (required).
+    ///   - transcription: Optional speech-to-text transcription.
+    ///   - extractedJson: Optional structured extraction results.
+    ///   - createdAt: Timestamp of creation (defaults to now).
+    ///   - updatedAt: Timestamp of last modification.
+    ///   - tags: Optional tags for categorization.
+    init(
+        id: String = UUID().uuidString,
+        text: String,
+        transcription: String? = nil,
+        extractedJson: [String: String] = [:],
+        createdAt: Date = Date(),
+        updatedAt: Date? = nil,
+        tags: [String] = []
+    ) {
+        self.id = id
+        self.text = text
+        self.transcription = transcription
+        self.extractedJson = extractedJson
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? Date()
+        self.tags = tags
+    }
+}

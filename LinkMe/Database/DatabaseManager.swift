@@ -198,6 +198,24 @@ class DatabaseManager {
         ON cards(is_default, deleted_at);
         """
 
+        let standaloneNotes = """
+        CREATE TABLE IF NOT EXISTS standalone_notes (
+            id TEXT PRIMARY KEY,
+            text TEXT NOT NULL,
+            transcription TEXT,
+            extracted_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            tags TEXT,
+            deleted_at DATETIME
+        );
+        """
+
+        let standaloneNotesCreatedIndex = """
+        CREATE INDEX IF NOT EXISTS idx_standalone_notes_deleted_created
+        ON standalone_notes(deleted_at, created_at);
+        """
+
         let peopleFTS = """
         CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, content=people, content_rowid=rowid);
         """
@@ -221,7 +239,7 @@ class DatabaseManager {
         END;
         """
 
-        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault, peopleFTS, peopleFTSTriggerInsert, peopleFTSTriggerDelete, peopleFTSTriggerUpdate] {
+        for createTableSQL in [users, people, personTags, personTagsIndex, peopleCapturedIndex, peopleNameIndex, peopleLastContactIndex, notes, contacts, threads, shares, relationships, cards, cardsIndexDefault, standaloneNotes, standaloneNotesCreatedIndex, peopleFTS, peopleFTSTriggerInsert, peopleFTSTriggerDelete, peopleFTSTriggerUpdate] {
             executeSQL(createTableSQL)
         }
 
@@ -592,6 +610,108 @@ class DatabaseManager {
         }
         sqlite3_finalize(statement)
         return notes
+    }
+
+    /// Inserts a new standalone note into the database.
+    /// - Parameter note: The standalone note to insert.
+    func insertStandaloneNote(_ note: StandaloneNoteModel) {
+        let sql = """
+        INSERT INTO standalone_notes (id, text, transcription, extracted_json, created_at, updated_at, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, note.id)
+            bindText(statement, 2, note.text)
+            bindText(statement, 3, note.transcription)
+            bindText(statement, 4, encodeExtractedJson(note.extractedJson))
+            sqlite3_bind_int64(statement, 5, Int64(note.createdAt.timeIntervalSince1970))
+            sqlite3_bind_int64(statement, 6, Int64((note.updatedAt ?? Date()).timeIntervalSince1970))
+            bindText(statement, 7, encodeTags(note.tags))
+
+            if sqlite3_step(statement) == SQLITE_DONE {
+                print("✓ Standalone note inserted")
+            }
+        }
+        sqlite3_finalize(statement)
+    }
+
+    /// Updates an existing standalone note.
+    /// - Parameter note: The standalone note to update.
+    func updateStandaloneNote(_ note: StandaloneNoteModel) {
+        let sql = """
+        UPDATE standalone_notes SET
+            text = ?, transcription = ?, extracted_json = ?, updated_at = ?, tags = ?
+        WHERE id = ? AND deleted_at IS NULL
+        """
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, note.text)
+            bindText(statement, 2, note.transcription)
+            bindText(statement, 3, encodeExtractedJson(note.extractedJson))
+            sqlite3_bind_int64(statement, 4, Int64(Date().timeIntervalSince1970))
+            bindText(statement, 5, encodeTags(note.tags))
+            bindText(statement, 6, note.id)
+
+            if sqlite3_step(statement) == SQLITE_DONE {
+                print("✓ Standalone note updated")
+            }
+        }
+        sqlite3_finalize(statement)
+    }
+
+    /// Fetches all standalone notes, ordered by creation date (newest first).
+    /// - Returns: Array of standalone notes that haven't been deleted.
+    func fetchStandaloneNotes() -> [StandaloneNoteModel] {
+        let sql = """
+        SELECT id, text, transcription, extracted_json, created_at, updated_at, tags
+        FROM standalone_notes
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        """
+
+        var notes: [StandaloneNoteModel] = []
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = String(cString: sqlite3_column_text(statement, 0))
+                let text = String(cString: sqlite3_column_text(statement, 1))
+                let transcription = columnText(statement, 2)
+                let extractedJson = decodeExtractedJson(columnText(statement, 3))
+                let createdAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 4)))
+                let updatedAt = Date(timeIntervalSince1970: TimeInterval(sqlite3_column_int64(statement, 5)))
+                let tags = decodeTags(columnText(statement, 6))
+
+                var note = StandaloneNoteModel(
+                    id: id,
+                    text: text,
+                    transcription: transcription,
+                    extractedJson: extractedJson,
+                    createdAt: createdAt,
+                    updatedAt: updatedAt,
+                    tags: tags
+                )
+                notes.append(note)
+            }
+        }
+        sqlite3_finalize(statement)
+        return notes
+    }
+
+    /// Soft-deletes a standalone note by marking it as deleted.
+    /// - Parameter id: The ID of the note to delete.
+    func deleteStandaloneNote(id: String) {
+        let sql = "UPDATE standalone_notes SET deleted_at = ? WHERE id = ?"
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int64(statement, 1, Int64(Date().timeIntervalSince1970))
+            bindText(statement, 2, id)
+            sqlite3_step(statement)
+        }
+        sqlite3_finalize(statement)
     }
 
     private func migratePeopleSchema() {
@@ -1023,7 +1143,7 @@ class DatabaseManager {
     }
 
     func clearAllData() {
-        let tables = ["people", "notes", "contacts", "threads", "shares", "relationships", "cards", "users"]
+        let tables = ["people", "notes", "contacts", "threads", "shares", "relationships", "cards", "users", "standalone_notes"]
         for table in tables {
             let sql = "DELETE FROM \(table)"
             var statement: OpaquePointer?
