@@ -30,11 +30,30 @@ class AddressBookHelper {
 
     /// Fetches creation and modification dates for a contact.
     ///
-    /// Searches the address book for a contact matching the given name and first phone number.
-    /// Safe to call from any thread. Core Foundation references are properly managed.
+    /// **Purpose:** Extract the contact's original AddressBook timestamps (when it was added to
+    /// iPhone Contacts, when it was last modified) so that LinkMe can preserve these dates
+    /// when importing contacts. This ensures capturedAt and updatedAt reflect actual contact
+    /// history, not the time of LinkMe sync.
+    ///
+    /// **Method:**
+    /// - Queries legacy AddressBook C API (CNContact doesn't expose these dates)
+    /// - Matches contact by name + first phone number (CNContact identifier alone is insufficient)
+    /// - Extracts ABPersonCreationDateProperty and ABPersonModificationDateProperty
+    /// - Logs found dates to console for debugging
+    ///
+    /// **Thread Safety:** Safe to call from any thread (background Tasks). Core Foundation
+    /// references are properly managed via takeRetainedValue().
+    ///
+    /// **Usage in ContactSyncManager:**
+    /// - contactDates() returns ContactDates with createdDate and modifiedDate
+    /// - ContactSyncManager.processBatch() uses these to populate PersonModel.capturedAt
+    ///   and PersonModel.updatedAt before persisting to SQLite
+    /// - Result: relationship dates reflect iPhone Contacts app history, not LinkMe insertion time
+    ///
     /// - Parameters:
     ///   - contact: A CNContact from the modern Contacts framework.
     /// - Returns: ContactDates with createdDate and modifiedDate if found; nil dates if not found or on error.
+    ///           If AddressBook has no dates, both fields are nil and the sync operation logs "[AddressBook] No dates found"
     nonisolated func contactDates(for contact: CNContact) -> ContactDates {
         var error: Unmanaged<CFError>?
         guard let addressBookRef = ABAddressBookCreateWithOptions(nil, &error) else {

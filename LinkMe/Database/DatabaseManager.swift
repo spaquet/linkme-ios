@@ -364,6 +364,17 @@ class DatabaseManager {
     /// Checks if person exists by ID; inserts new record or updates existing one.
     /// This is the primary method for persisting persons from capture or sync.
     ///
+    /// **AddressBook Date Handling:**
+    /// When syncing from Apple Contacts via ContactSyncManager:
+    /// - NEW contacts: person.capturedAt and person.updatedAt are populated from AddressBook
+    ///   (not current time). INSERT stores these dates as-is via ISO8601 formatter.
+    /// - UPDATED contacts: person.updatedAt is refreshed from AddressBook.modificationDate.
+    ///   person.capturedAt is NOT updated (preserves original import date).
+    /// - Fallback: If AddressBook has no dates, PersonModel defaults (Date()) are used.
+    ///
+    /// Result: SQLite stores the contact's history from iPhone Contacts app, enabling
+    /// accurate "created" and "last synced" reporting in PersonDetailView timeline.
+    ///
     /// - Parameters:
     ///   - person: The person to insert or update.
     func upsertPerson(_ person: PersonModel) {
@@ -985,6 +996,19 @@ class DatabaseManager {
         sqlite3_bind_text(statement, index, value, -1, transient)
     }
 
+    /// Binds a Date value to a SQLite statement parameter as ISO8601 string.
+    ///
+    /// **Format:** ISO8601 with timezone and full precision (e.g., 2024-06-15T10:30:45Z).
+    /// This ensures dates from AddressBook (capturedAt, updatedAt) are stored with exact
+    /// precision and timezone info, so they round-trip correctly when read back.
+    ///
+    /// **Why ISO8601:** Human-readable in database, timezone-aware, SQLITE3 compatible,
+    /// preserves exact moment in time (important for relationship history).
+    ///
+    /// - Parameters:
+    ///   - statement: SQLite prepared statement
+    ///   - index: Parameter index (1-based)
+    ///   - value: Date to bind, or nil to store NULL
     private func bindDate(_ statement: OpaquePointer?, _ index: Int32, _ value: Date?) {
         guard let value else {
             sqlite3_bind_null(statement, index)

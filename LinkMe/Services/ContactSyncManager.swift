@@ -242,10 +242,36 @@ final class ContactSyncManager: ObservableObject {
     private nonisolated func processBatch(_ contacts: [CNContact], lastSyncedAt: Date) async -> (imported: Int, updated: Int) {
         /// Processes contacts in background task with duplicate detection and timestamp preservation.
         ///
-        /// Memory safety: All local state (processedIdentifiers) is released when Task completes.
-        /// addressBookHelper is captured as a singleton reference (no strong ownership transfer).
-        /// AddressBook Core Foundation references are properly managed via takeRetainedValue().
-        /// Each contactDates() call properly cleans up ABAddressBook and array references.
+        /// **Timestamp Handling (Critical):**
+        /// This method ensures that when syncing contacts from Apple Contacts, we preserve the
+        /// contact's original creation and modification dates from AddressBook (the system date
+        /// the contact was added to iPhone), NOT the current time when we insert into LinkMe's database.
+        ///
+        /// Flow:
+        /// 1. For new contacts (existing == nil):
+        ///    - Fetch AddressBook dates via AddressBookHelper.contactDates()
+        ///    - Override PersonModel.capturedAt with AddressBook.createdDate
+        ///    - Override PersonModel.updatedAt with AddressBook.modifiedDate
+        /// 2. For updated contacts (checksum mismatch):
+        ///    - Fetch AddressBook dates via AddressBookHelper.contactDates()
+        ///    - Update PersonModel.updatedAt with AddressBook.modifiedDate
+        ///    - Keep PersonModel.capturedAt unchanged (original import date)
+        /// 3. DatabaseManager.upsertPerson() persists these AddressBook dates to SQLite
+        ///    via ISO8601 formatter (timezone-aware, exact precision)
+        /// 4. PersonDetailView displays via formatDate() helper
+        ///
+        /// Result: capturedAt = when contact was added to iPhone Contacts app
+        ///         updatedAt = when contact was last modified in iPhone Contacts app
+        ///
+        /// **Duplicate Detection:**
+        /// Tracks processed identifiers to detect duplicates in a single batch.
+        /// Duplicates are logged to console and skipped (not processed twice).
+        ///
+        /// **Memory Safety:**
+        /// - All local state (processedIdentifiers) released when Task completes
+        /// - addressBookHelper is singleton reference (no strong ownership transfer)
+        /// - AddressBook CF references properly managed via takeRetainedValue()
+        /// - Each contactDates() call cleans up ABAddressBook and array references
         await Task.detached(priority: .background) {
             var imported = 0
             var updated = 0
