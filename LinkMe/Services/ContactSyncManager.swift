@@ -240,14 +240,30 @@ final class ContactSyncManager: ObservableObject {
     }
 
     private nonisolated func processBatch(_ contacts: [CNContact], lastSyncedAt: Date) async -> (imported: Int, updated: Int) {
+        /// Processes contacts in background task with duplicate detection and timestamp preservation.
+        ///
+        /// Memory safety: All local state (processedIdentifiers) is released when Task completes.
+        /// addressBookHelper is captured as a singleton reference (no strong ownership transfer).
+        /// AddressBook Core Foundation references are properly managed via takeRetainedValue().
+        /// Each contactDates() call properly cleans up ABAddressBook and array references.
         await Task.detached(priority: .background) {
             var imported = 0
             var updated = 0
+            var processedIdentifiers = Set<String>()
+            let addressBookHelper = AddressBookHelper.shared
 
             for contact in contacts {
-                let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contact.identifier)
+                let contactId = contact.identifier
+
+                if processedIdentifiers.contains(contactId) {
+                    print("[ContactSync] ⚠️  Duplicate contact identifier in batch: \(contactId) (\(Self.displayName(for: contact))). Skipping.")
+                    continue
+                }
+                processedIdentifiers.insert(contactId)
+
+                let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contactId)
                 var person = existing ?? PersonModel(
-                    id: "apple-contact-\(contact.identifier)",
+                    id: "apple-contact-\(contactId)",
                     name: Self.displayName(for: contact),
                     company: contact.organizationName,
                     role: contact.jobTitle
@@ -255,8 +271,19 @@ final class ContactSyncManager: ObservableObject {
 
                 if existing == nil {
                     imported += 1
+                    let contactDates = addressBookHelper.contactDates(for: contact)
+                    if let createdDate = contactDates.createdDate {
+                        person.capturedAt = createdDate
+                    }
+                    if let modifiedDate = contactDates.modifiedDate {
+                        person.updatedAt = modifiedDate
+                    }
                 } else if person.appleContactSyncChecksum != Self.contactChecksum(contact) {
                     updated += 1
+                    let contactDates = addressBookHelper.contactDates(for: contact)
+                    if let modifiedDate = contactDates.modifiedDate {
+                        person.updatedAt = modifiedDate
+                    }
                 }
 
                 person.name = Self.displayName(for: contact)
@@ -265,7 +292,7 @@ final class ContactSyncManager: ObservableObject {
                 person.initials = (givenInitial + familyInitial).isEmpty ? PersonModel.computeInitials(person.name) : (givenInitial + familyInitial)
                 person.company = contact.organizationName
                 person.role = contact.jobTitle
-                person.appleContactIdentifier = contact.identifier
+                person.appleContactIdentifier = contactId
                 person.appleContactLastSyncedAt = lastSyncedAt
                 person.appleContactSyncChecksum = Self.contactChecksum(contact)
                 person.appleContactSnapshotJson = Self.contactSnapshotJson(contact)

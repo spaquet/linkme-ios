@@ -31,10 +31,11 @@ class AddressBookHelper {
     /// Fetches creation and modification dates for a contact.
     ///
     /// Searches the address book for a contact matching the given name and first phone number.
+    /// Safe to call from any thread. Core Foundation references are properly managed.
     /// - Parameters:
     ///   - contact: A CNContact from the modern Contacts framework.
     /// - Returns: ContactDates with createdDate and modifiedDate if found; nil dates if not found or on error.
-    func contactDates(for contact: CNContact) -> ContactDates {
+    nonisolated func contactDates(for contact: CNContact) -> ContactDates {
         var error: Unmanaged<CFError>?
         guard let addressBookRef = ABAddressBookCreateWithOptions(nil, &error) else {
             if let error = error?.takeRetainedValue() {
@@ -100,7 +101,7 @@ class AddressBookHelper {
     /// - Parameters:
     ///   - contact: A CNContact from the modern Contacts framework.
     /// - Returns: The contact creation date if found; nil otherwise.
-    func creationDate(for contact: CNContact) -> Date? {
+    nonisolated func creationDate(for contact: CNContact) -> Date? {
         contactDates(for: contact).createdDate
     }
 
@@ -111,7 +112,7 @@ class AddressBookHelper {
     ///   - record: An ABRecord from the AddressBook framework.
     ///   - phone: Phone number string to search for.
     /// - Returns: true if the phone number exists in the record.
-    private func isPhoneInRecord(_ record: ABRecord, phone: String) -> Bool {
+    private nonisolated func isPhoneInRecord(_ record: ABRecord, phone: String) -> Bool {
         if let phoneRef = ABRecordCopyValue(record, kABPersonPhoneProperty) {
             let phoneValue = phoneRef.takeRetainedValue()
             if let phoneMultiValue = phoneValue as? ABMultiValue {
