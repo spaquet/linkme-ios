@@ -410,47 +410,93 @@ struct PersonDetailView: View {
                         }
 
                         // Timeline
-                        if !person.timeline.isEmpty {
-                            VStack(alignment: .leading, spacing: 9) {
-                                SectionLabel("Relationship timeline")
+                        VStack(alignment: .leading, spacing: 9) {
+                            SectionLabel("Relationship timeline")
 
-                                VStack(alignment: .leading, spacing: 14) {
-                                    ForEach(person.timeline.indices, id: \.self) { index in
-                                        HStack(alignment: .top, spacing: 13) {
-                                            TimelineDot(kind: person.timeline[index].kind)
+                            VStack(alignment: .leading, spacing: 14) {
+                                if let identifier = person.appleContactIdentifier {
+                                    HStack(alignment: .top, spacing: 13) {
+                                        Image(systemName: "pin.fill")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(LinkMeColors.t600)
+                                            .frame(width: 24, height: 24)
+                                            .background(LinkMeColors.t50)
+                                            .clipShape(Circle())
 
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                HStack {
-                                                    Text(person.timeline[index].label)
-                                                        .font(.system(size: 14.5, weight: .semibold, design: .default))
-                                                        .foregroundColor(LinkMeColors.ink)
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text("Added to Contacts")
+                                                .font(.system(size: 14.5, weight: .semibold, design: .default))
+                                                .foregroundColor(LinkMeColors.ink)
 
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                HStack(spacing: 8) {
+                                                    Text("Created")
+                                                        .font(.system(size: 13, design: .default))
+                                                        .foregroundColor(LinkMeColors.s500)
                                                     Spacer()
-
-                                                    Text(person.timeline[index].date)
-                                                        .font(.system(size: 12, design: .default))
-                                                        .foregroundColor(LinkMeColors.s400)
+                                                    Text(formatDate(person.capturedAt))
+                                                        .font(.system(size: 13, weight: .semibold, design: .default))
+                                                        .foregroundColor(LinkMeColors.s700)
                                                 }
 
-                                                if let detail = person.timeline[index].detail {
-                                                    Text(detail)
+                                                HStack(spacing: 8) {
+                                                    Text("Last synced")
                                                         .font(.system(size: 13, design: .default))
-                                                        .lineSpacing(1)
                                                         .foregroundColor(LinkMeColors.s500)
+                                                    Spacer()
+                                                    Text(formatDate(person.updatedAt))
+                                                        .font(.system(size: 13, weight: .semibold, design: .default))
+                                                        .foregroundColor(LinkMeColors.s700)
                                                 }
                                             }
-
-                                            Spacer()
+                                            .padding(12)
+                                            .background(LinkMeColors.t50)
+                                            .cornerRadius(8)
                                         }
+
+                                        Spacer()
+                                    }
+                                    .padding(16)
+                                    .background(LinkMeColors.surface)
+                                    .border(LinkMeColors.t200, width: 1)
+                                    .cornerRadius(LinkMeLayout.cardRadius)
+                                }
+
+                                ForEach(person.timeline.indices, id: \.self) { index in
+                                    HStack(alignment: .top, spacing: 13) {
+                                        TimelineDot(kind: person.timeline[index].kind)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack {
+                                                Text(person.timeline[index].label)
+                                                    .font(.system(size: 14.5, weight: .semibold, design: .default))
+                                                    .foregroundColor(LinkMeColors.ink)
+
+                                                Spacer()
+
+                                                Text(person.timeline[index].date)
+                                                    .font(.system(size: 12, design: .default))
+                                                    .foregroundColor(LinkMeColors.s400)
+                                            }
+
+                                            if let detail = person.timeline[index].detail {
+                                                Text(detail)
+                                                    .font(.system(size: 13, design: .default))
+                                                    .lineSpacing(1)
+                                                    .foregroundColor(LinkMeColors.s500)
+                                            }
+                                        }
+
+                                        Spacer()
                                     }
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 18)
                             }
                             .padding(.horizontal, 16)
-                            .padding(.top, 0)
-                            .padding(.bottom, LinkMeLayout.homeInset)
+                            .padding(.vertical, 18)
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 0)
+                        .padding(.bottom, LinkMeLayout.homeInset)
                     }
                     .onAppear {
                         scrollProxy.scrollTo("top", anchor: .top)
