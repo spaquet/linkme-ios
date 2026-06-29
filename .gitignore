@@ -3,7 +3,12 @@
 
 # Xcode user state
 *.xcuserstate
+*.xcuserdatad/
 xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
 
 # Xcode build output
 build/
@@ -12,6 +17,7 @@ DerivedData/
 # Swift Package Manager
 .build/
 .swiftpm/
+.swiftpm/config.json
 
 # CocoaPods and Carthage generated dependencies
 Pods/
@@ -28,7 +34,19 @@ fastlane/test_output/
 *.ipa
 *.dSYM.zip
 *.dSYM
+*.xcarchive
 
 # Playgrounds
 timeline.xctimeline
 playground.xcworkspace/
+
+# Claude Code local config and locks
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# Environment and secrets
+.env
+.env.local
+*.p8
+*.key
+*.pem

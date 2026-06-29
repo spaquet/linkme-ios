@@ -429,6 +429,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LinkMe/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LinkMe;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "LinkMe syncs your iPhone contacts into your on-device people list";
@@ -469,6 +470,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LinkMe/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LinkMe;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "LinkMe reads upcoming calendar events to show timely relationship briefings.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "LinkMe syncs your iPhone contacts into your on-device people list";
