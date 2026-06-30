@@ -2,6 +2,7 @@ import BackgroundTasks
 import Combine
 import Contacts
 import Foundation
+import os
 
 /// Current state of Apple Contacts sync.
 enum ContactSyncState: Equatable {
@@ -97,6 +98,8 @@ final class ContactSyncManager: ObservableObject {
         state = savedIsEnabled ? .needsPermission : .off
 
         if savedIsEnabled {
+            // Sync on launch to catch any changes that arrived while app was closed.
+            Task { await incrementalSync() }
             changeHistoryTask = Task {
                 await listenToContactChanges()
             }
@@ -111,6 +114,7 @@ final class ContactSyncManager: ObservableObject {
     /// - Parameters:
     ///   - enabled: Whether to enable sync.
     func setEnabled(_ enabled: Bool) {
+        Logger.sync.info("setEnabled: \(enabled, privacy: .public)")
         isEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: enabledKey)
 
@@ -250,17 +254,20 @@ final class ContactSyncManager: ObservableObject {
 
     private nonisolated func incrementalSync() async {
         guard let token = loadHistoryToken() else {
+            Logger.sync.info("incrementalSync: no history token, falling back to full sync")
             await sync()
             return
         }
 
+        Logger.sync.info("incrementalSync: token present (\(token.count) bytes)")
         do {
             try await performIncrementalSync(startingToken: token)
         } catch let error as CNError where error.code == .changeHistoryExpired {
+            Logger.sync.warning("incrementalSync: history token expired, clearing and doing full sync")
             clearHistoryToken()
             await sync()
         } catch {
-            // Non-fatal: next BGAppRefreshTask will retry.
+            Logger.sync.error("incrementalSync failed: \(error.localizedDescription)")
         }
     }
 
@@ -287,9 +294,12 @@ final class ContactSyncManager: ObservableObject {
                 }
             }
 
+            Logger.sync.info("performIncrementalSync: added=\(added.count) updated=\(updated.count) deleted=\(deletedIds.count)")
+
             let now = Date()
             let abSession = AddressBookHelper.shared.openSession()
             let toUpsert = (added + updated).filter { Self.hasUsefulContactData($0) }
+            Logger.sync.debug("performIncrementalSync: \(toUpsert.count) contacts pass hasUsefulContactData filter")
 
             if !toUpsert.isEmpty {
                 var importedCount = 0
@@ -298,30 +308,37 @@ final class ContactSyncManager: ObservableObject {
                 var people: [PersonModel] = []
 
                 for contact in toUpsert {
-                    guard !seen.contains(contact.identifier) else { continue }
+                    guard !seen.contains(contact.identifier) else {
+                        Logger.sync.warning("performIncrementalSync: duplicate identifier skipped \(contact.identifier, privacy: .private)")
+                        continue
+                    }
                     seen.insert(contact.identifier)
 
                     let contactId = contact.identifier
+                    let contactName = Self.displayName(for: contact)
                     let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contactId)
+                        ?? DatabaseManager.shared.fetchUnlinkedPerson(name: contactName)
                     var person = existing ?? PersonModel(
                         id: "apple-contact-\(contactId)",
-                        name: Self.displayName(for: contact),
+                        name: contactName,
                         company: contact.organizationName,
                         role: contact.jobTitle
                     )
 
                     if existing == nil {
                         importedCount += 1
+                        Logger.sync.debug("performIncrementalSync: import new contact \(contactName, privacy: .private)")
                         let dates = abSession?.dates(for: contact) ?? ContactDates(createdDate: nil, modifiedDate: nil)
                         if let d = dates.createdDate { person.capturedAt = d }
                         if let d = dates.modifiedDate { person.updatedAt = d }
                     } else {
                         updatedCount += 1
+                        Logger.sync.debug("performIncrementalSync: update existing contact \(contactName, privacy: .private)")
                         let dates = abSession?.dates(for: contact) ?? ContactDates(createdDate: nil, modifiedDate: nil)
                         if let d = dates.modifiedDate { person.updatedAt = d }
                     }
 
-                    person.name = Self.displayName(for: contact)
+                    person.name = contactName
                     let gi = contact.givenName.prefix(1).uppercased()
                     let fi = contact.familyName.prefix(1).uppercased()
                     person.initials = (gi + fi).isEmpty ? PersonModel.computeInitials(person.name) : (gi + fi)
@@ -335,6 +352,7 @@ final class ContactSyncManager: ObservableObject {
                     people.append(person)
                 }
 
+                Logger.sync.info("performIncrementalSync: upsert \(people.count) people (imported=\(importedCount) updated=\(updatedCount))")
                 DatabaseManager.shared.upsertPeople(people)
 
                 let i = importedCount
@@ -347,11 +365,15 @@ final class ContactSyncManager: ObservableObject {
 
             abSession?.close()
 
-            for contactId in deletedIds {
-                DatabaseManager.shared.softDeletePerson(appleContactIdentifier: contactId)
+            if !deletedIds.isEmpty {
+                Logger.sync.info("performIncrementalSync: soft-deleting \(deletedIds.count) removed contacts")
+                for contactId in deletedIds {
+                    DatabaseManager.shared.softDeletePerson(appleContactIdentifier: contactId)
+                }
             }
 
             self.saveHistoryToken(result.currentHistoryToken)
+            Logger.sync.info("performIncrementalSync: done, history token saved")
         }.value
     }
 
@@ -362,20 +384,25 @@ final class ContactSyncManager: ObservableObject {
     nonisolated func sync() async {
         let isEnabledSnapshot = await MainActor.run { self.isEnabled }
         guard isEnabledSnapshot else {
+            Logger.sync.info("sync: skipped (disabled)")
             await MainActor.run { self.state = .off }
             return
         }
 
+        Logger.sync.info("sync: full sync start")
         await MainActor.run { self.state = .syncing }
 
         do {
             let authorized = try await requestAccessIfNeeded()
             guard authorized else {
+                Logger.sync.warning("sync: contacts permission denied")
                 await MainActor.run { self.state = .denied }
                 return
             }
 
             let contacts = try await fetchContacts()
+            Logger.sync.info("sync: fetched \(contacts.count) contacts from Contacts.app")
+
             var progress = loadProgress() ?? ContactSyncProgress(
                 totalContacts: contacts.count,
                 processedIdentifiers: [],
@@ -383,23 +410,28 @@ final class ContactSyncManager: ObservableObject {
             )
 
             let remaining = contacts.filter { !progress.processedIdentifiers.contains($0.identifier) }
+            if remaining.count < contacts.count {
+                Logger.sync.info("sync: resuming checkpoint — \(contacts.count - remaining.count) already processed, \(remaining.count) remaining")
+            }
 
-            // Publish total immediately before any batch starts.
             await MainActor.run { self.stats.total = contacts.count }
 
             var nextStats = ContactSyncStats(total: contacts.count, lastSyncedAt: Date())
             let batchSize = 200
             let abSession = AddressBookHelper.shared.openSession()
+            var batchIndex = 0
 
             for batchStart in stride(from: 0, to: remaining.count, by: batchSize) {
                 let batchEnd = min(batchStart + batchSize, remaining.count)
                 let batch = Array(remaining[batchStart..<batchEnd])
+                batchIndex += 1
+                Logger.sync.debug("sync: batch \(batchIndex) — \(batch.count) contacts (offset \(batchStart))")
 
                 let (imported, updated) = await processBatch(batch, lastSyncedAt: nextStats.lastSyncedAt ?? Date(), abSession: abSession)
                 nextStats.imported += imported
                 nextStats.updated += updated
+                Logger.sync.debug("sync: batch \(batchIndex) done — imported=\(imported) updated=\(updated) totals=(\(nextStats.imported)/\(nextStats.updated))")
 
-                // Save checkpoint after each batch.
                 progress.processedIdentifiers.formUnion(batch.map(\.identifier))
                 progress.totalContacts = contacts.count
                 saveProgress(progress)
@@ -415,13 +447,20 @@ final class ContactSyncManager: ObservableObject {
             nextStats.stored = DatabaseManager.shared.fetchPeople().filter { $0.appleContactIdentifier != nil }.count
 
             clearProgress()
-            if let token = CNContactStore().currentHistoryToken { saveHistoryToken(token) }
+            if let token = CNContactStore().currentHistoryToken {
+                saveHistoryToken(token)
+                Logger.sync.info("sync: history token saved (\(token.count) bytes)")
+            } else {
+                Logger.sync.warning("sync: no history token available after full sync")
+            }
 
+            Logger.sync.info("sync: complete — imported=\(nextStats.imported) updated=\(nextStats.updated) exported=\(nextStats.exported) stored=\(nextStats.stored)")
             await MainActor.run {
                 self.stats = nextStats
                 self.state = .synced
             }
         } catch {
+            Logger.sync.error("sync: failed — \(error.localizedDescription)")
             await MainActor.run {
                 self.state = .failed(error.localizedDescription)
             }
@@ -439,15 +478,17 @@ final class ContactSyncManager: ObservableObject {
                 let contactId = contact.identifier
 
                 if processedIdentifiers.contains(contactId) {
-                    print("[ContactSync] ⚠️  Duplicate contact identifier in batch: \(contactId) (\(Self.displayName(for: contact))). Skipping.")
+                    Logger.sync.warning("processBatch: duplicate identifier skipped \(contactId, privacy: .private) name=\(Self.displayName(for: contact), privacy: .private)")
                     continue
                 }
                 processedIdentifiers.insert(contactId)
 
+                let contactName = Self.displayName(for: contact)
                 let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contactId)
+                    ?? DatabaseManager.shared.fetchUnlinkedPerson(name: contactName)
                 var person = existing ?? PersonModel(
                     id: "apple-contact-\(contactId)",
-                    name: Self.displayName(for: contact),
+                    name: contactName,
                     company: contact.organizationName,
                     role: contact.jobTitle
                 )
@@ -469,7 +510,7 @@ final class ContactSyncManager: ObservableObject {
                     }
                 }
 
-                person.name = Self.displayName(for: contact)
+                person.name = contactName
                 let givenInitial = contact.givenName.prefix(1).uppercased()
                 let familyInitial = contact.familyName.prefix(1).uppercased()
                 person.initials = (givenInitial + familyInitial).isEmpty ? PersonModel.computeInitials(person.name) : (givenInitial + familyInitial)
@@ -491,15 +532,21 @@ final class ContactSyncManager: ObservableObject {
 
     private nonisolated func requestAccessIfNeeded() async throws -> Bool {
         let status = CNContactStore.authorizationStatus(for: .contacts)
+        Logger.sync.debug("requestAccessIfNeeded: current status=\(status.rawValue)")
         switch status {
         case .authorized, .limited:
             return true
         case .notDetermined:
+            Logger.sync.info("requestAccessIfNeeded: prompting user for contacts permission")
             let store = CNContactStore()
-            return try await store.requestAccess(for: .contacts)
+            let granted = try await store.requestAccess(for: .contacts)
+            Logger.sync.info("requestAccessIfNeeded: user granted=\(granted)")
+            return granted
         case .denied, .restricted:
+            Logger.sync.warning("requestAccessIfNeeded: access denied/restricted (status=\(status.rawValue))")
             return false
         @unknown default:
+            Logger.sync.warning("requestAccessIfNeeded: unknown status \(status.rawValue)")
             return false
         }
     }
@@ -563,9 +610,13 @@ final class ContactSyncManager: ObservableObject {
             if exported > 0 {
                 do {
                     try store.execute(saveRequest)
+                    Logger.sync.info("exportLinkedPeople: saved \(exported) contacts back to Contacts.app")
                 } catch {
+                    Logger.sync.error("exportLinkedPeople: save request failed — \(error.localizedDescription)")
                     return 0
                 }
+            } else {
+                Logger.sync.debug("exportLinkedPeople: nothing to export")
             }
 
             return exported

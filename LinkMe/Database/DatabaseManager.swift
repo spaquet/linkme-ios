@@ -1,4 +1,5 @@
 import Foundation
+import os
 import SQLite3
 
 /// Singleton manager for all SQLite database operations.
@@ -32,9 +33,10 @@ class DatabaseManager {
 
     private func openDatabase() {
         if sqlite3_open(dbPath, &db) == SQLITE_OK {
-            print("✓ Database opened at \(dbPath)")
+            Logger.db.info("DB opened at \(self.dbPath, privacy: .private)")
         } else {
-            print("✗ Error opening database")
+            let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+            Logger.db.fault("DB open failed: \(msg)")
         }
     }
 
@@ -309,7 +311,7 @@ class DatabaseManager {
 
     /// Execute arbitrary SQL synchronously.
     ///
-    /// Use for raw SQL operations not covered by higher-level methods. Prints errors to console.
+    /// Use for raw SQL operations not covered by higher-level methods. Logs errors via os.Logger.
     ///
     /// - Parameters:
     ///   - sql: SQL statement to execute.
@@ -317,7 +319,8 @@ class DatabaseManager {
         var errorMessage: UnsafeMutablePointer<Int8>?
         if sqlite3_exec(db, sql, nil, nil, &errorMessage) != SQLITE_OK {
             if let error = errorMessage {
-                print("SQL Error: \(String(cString: error))")
+                let msg = String(cString: error)
+                Logger.db.error("SQL error: \(msg) — sql: \(sql.prefix(120))")
                 sqlite3_free(errorMessage)
             }
         }
@@ -355,8 +358,13 @@ class DatabaseManager {
 
             if sqlite3_step(statement) == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
-                print("✓ Person inserted: \(person.name)")
+                Logger.db.debug("person inserted: \(person.name, privacy: .private) id=\(person.id, privacy: .private)")
+            } else {
+                let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+                Logger.db.error("person insert failed: \(person.name, privacy: .private) — \(msg)")
             }
+        } else {
+            Logger.db.error("insertPerson prepare failed for id=\(person.id, privacy: .private)")
         }
         sqlite3_finalize(statement)
     }
@@ -454,7 +462,13 @@ class DatabaseManager {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
+                Logger.db.debug("person upsert (\(personExists ? "update" : "insert", privacy: .public)): \(person.name, privacy: .private) id=\(person.id, privacy: .private)")
+            } else {
+                let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+                Logger.db.error("person upsert failed (\(personExists ? "update" : "insert", privacy: .public)): \(person.name, privacy: .private) — \(msg)")
             }
+        } else {
+            Logger.db.error("upsertPerson prepare failed for id=\(person.id, privacy: .private)")
         }
         sqlite3_finalize(statement)
     }
@@ -467,11 +481,13 @@ class DatabaseManager {
     ///   - people: People to insert or update.
     func upsertPeople(_ people: [PersonModel]) {
         guard !people.isEmpty else { return }
+        Logger.db.debug("upsertPeople batch start: \(people.count) records")
         executeSQL("BEGIN")
         for person in people {
             upsertPersonNoCommit(person)
         }
         executeSQL("COMMIT")
+        Logger.db.debug("upsertPeople batch commit: \(people.count) records")
     }
 
     private func upsertPersonNoCommit(_ person: PersonModel) {
@@ -548,7 +564,12 @@ class DatabaseManager {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
+            } else {
+                let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+                Logger.db.error("upsertPersonNoCommit failed (\(personExists ? "update" : "insert", privacy: .public)): \(person.name, privacy: .private) — \(msg)")
             }
+        } else {
+            Logger.db.error("upsertPersonNoCommit prepare failed for id=\(person.id, privacy: .private)")
         }
         sqlite3_finalize(statement)
     }
@@ -562,7 +583,77 @@ class DatabaseManager {
     ///
     /// - Returns: The matching person, or nil if not found.
     func fetchPerson(appleContactIdentifier: String) -> PersonModel? {
-        fetchPeople().first { $0.appleContactIdentifier == appleContactIdentifier }
+        let sql = """
+        SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at
+        FROM people
+        WHERE apple_contact_identifier = ? AND deleted_at IS NULL
+        LIMIT 1
+        """
+        var statement: OpaquePointer?
+        var person: PersonModel?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, appleContactIdentifier)
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = columnText(statement, 0) ?? ""
+                let name = columnText(statement, 1) ?? "Unknown person"
+                var p = PersonModel(id: id, name: name, company: columnText(statement, 2) ?? "", role: columnText(statement, 3) ?? "")
+                p.tone = columnText(statement, 4) ?? "teal"
+                p.initials = columnText(statement, 5) ?? PersonModel.computeInitials(name)
+                p.capturedAt = parseDate(columnText(statement, 6)) ?? Date()
+                p.lastContact = parseDate(columnText(statement, 7))
+                p.isFavorite = sqlite3_column_int(statement, 8) == 1
+                p.context = columnText(statement, 9) ?? ""
+                p.personal = columnText(statement, 10) ?? ""
+                p.followup = columnText(statement, 11) ?? ""
+                p.tags = decodeTags(columnText(statement, 12))
+                p.appleContactIdentifier = columnText(statement, 13)
+                p.appleContactLastSyncedAt = parseDate(columnText(statement, 14))
+                p.appleContactSyncChecksum = columnText(statement, 15)
+                p.appleContactSnapshotJson = columnText(statement, 16)
+                p.updatedAt = parseDate(columnText(statement, 17)) ?? Date()
+                person = p
+            }
+        }
+        sqlite3_finalize(statement)
+        return person
+    }
+
+    /// Find an existing person by exact name who has no Apple Contact link yet.
+    /// Used during sync to merge a manually-added LinkMe contact with its Apple Contacts counterpart.
+    func fetchUnlinkedPerson(name: String) -> PersonModel? {
+        let sql = """
+        SELECT id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at
+        FROM people
+        WHERE name = ? AND apple_contact_identifier IS NULL AND deleted_at IS NULL
+        LIMIT 1
+        """
+        var statement: OpaquePointer?
+        var person: PersonModel?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            bindText(statement, 1, name)
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = columnText(statement, 0) ?? ""
+                let pName = columnText(statement, 1) ?? "Unknown person"
+                var p = PersonModel(id: id, name: pName, company: columnText(statement, 2) ?? "", role: columnText(statement, 3) ?? "")
+                p.tone = columnText(statement, 4) ?? "teal"
+                p.initials = columnText(statement, 5) ?? PersonModel.computeInitials(pName)
+                p.capturedAt = parseDate(columnText(statement, 6)) ?? Date()
+                p.lastContact = parseDate(columnText(statement, 7))
+                p.isFavorite = sqlite3_column_int(statement, 8) == 1
+                p.context = columnText(statement, 9) ?? ""
+                p.personal = columnText(statement, 10) ?? ""
+                p.followup = columnText(statement, 11) ?? ""
+                p.tags = decodeTags(columnText(statement, 12))
+                p.appleContactIdentifier = columnText(statement, 13)
+                p.appleContactLastSyncedAt = parseDate(columnText(statement, 14))
+                p.appleContactSyncChecksum = columnText(statement, 15)
+                p.appleContactSnapshotJson = columnText(statement, 16)
+                p.updatedAt = parseDate(columnText(statement, 17)) ?? Date()
+                person = p
+            }
+        }
+        sqlite3_finalize(statement)
+        return person
     }
 
     func deletePlaceholderContactPeople(excluding appleContactIdentifiers: Set<String>) {
@@ -594,7 +685,12 @@ class DatabaseManager {
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int64(statement, 1, Int64(Date().timeIntervalSince1970))
             bindText(statement, 2, id)
-            sqlite3_step(statement)
+            if sqlite3_step(statement) == SQLITE_DONE {
+                Logger.db.debug("person soft-deleted id=\(id, privacy: .private)")
+            } else {
+                let msg = db.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown"
+                Logger.db.error("softDeletePerson failed id=\(id, privacy: .private) — \(msg)")
+            }
         }
         sqlite3_finalize(statement)
     }
