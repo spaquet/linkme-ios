@@ -277,6 +277,9 @@ struct PeopleView: View {
                         .padding(.bottom, LinkMeLayout.tabBarHeight + 18)
                     }
                     .scrollPosition(id: $scrollPosition)
+                    .refreshable {
+                        await ContactSyncManager.shared.refreshAsync()
+                    }
                 }
             }
         }

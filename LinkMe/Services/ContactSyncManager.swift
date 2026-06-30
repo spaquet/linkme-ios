@@ -147,6 +147,16 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
+    /// Triggers incremental (or full) sync and awaits completion. Used by pull-to-refresh.
+    func refreshAsync() async {
+        guard isEnabled else { return }
+        if loadHistoryToken() != nil {
+            await incrementalSync()
+        } else {
+            await sync()
+        }
+    }
+
     /// Force a full resync, discarding any saved resume checkpoint and history token.
     func forceResync() {
         clearProgress()
@@ -232,7 +242,9 @@ final class ContactSyncManager: ObservableObject {
         for await _ in notifications {
             let isEnabledSnapshot = await MainActor.run { self.isEnabled }
             guard isEnabledSnapshot else { continue }
+            // Run immediately in-process; bg task covers the case where app backgrounds mid-sync.
             scheduleBackgroundRefresh()
+            await incrementalSync()
         }
     }
 
