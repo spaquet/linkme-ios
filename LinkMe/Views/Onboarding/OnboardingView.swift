@@ -631,13 +631,6 @@ struct CreateCardView: View {
                                     .focused($focusedField, equals: .firstName)
                                     .submitLabel(.next)
                                     .onSubmit { focusedField = .lastName }
-                                    .onChange(of: firstName) { _, newValue in
-                                        if !newValue.isEmpty && focusedField == .firstName && lastName.isEmpty {
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                                focusedField = .lastName
-                                            }
-                                        }
-                                    }
                                     .padding(.horizontal, 13)
                                     .padding(.vertical, 12)
                                     .frame(height: 46)
