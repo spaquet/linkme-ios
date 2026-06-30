@@ -459,6 +459,100 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
 
+    /// Insert or update multiple people in a single SQLite transaction.
+    ///
+    /// Wraps all upserts in one BEGIN/COMMIT for O(N/200) transactions instead of O(N).
+    ///
+    /// - Parameters:
+    ///   - people: People to insert or update.
+    func upsertPeople(_ people: [PersonModel]) {
+        guard !people.isEmpty else { return }
+        executeSQL("BEGIN")
+        for person in people {
+            upsertPersonNoCommit(person)
+        }
+        executeSQL("COMMIT")
+    }
+
+    private func upsertPersonNoCommit(_ person: PersonModel) {
+        let checkExistsSql = "SELECT 1 FROM people WHERE id = ?"
+        var checkStatement: OpaquePointer?
+        var personExists = false
+
+        if sqlite3_prepare_v2(db, checkExistsSql, -1, &checkStatement, nil) == SQLITE_OK {
+            bindText(checkStatement, 1, person.id)
+            personExists = sqlite3_step(checkStatement) == SQLITE_ROW
+        }
+        sqlite3_finalize(checkStatement)
+
+        let sql: String
+        if personExists {
+            sql = """
+            UPDATE people SET
+                name = ?, company = ?, role = ?, tone = ?, initials = ?,
+                last_contact = ?, context = ?, personal = ?, followup = ?,
+                tags = ?, apple_contact_identifier = ?,
+                apple_contact_last_synced_at = ?, apple_contact_sync_checksum = ?, apple_contact_snapshot_json = ?,
+                updated_at = ?, search_blob = ?
+            WHERE id = ?
+            """
+        } else {
+            sql = """
+            INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at, search_blob)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+        }
+
+        var statement: OpaquePointer?
+        if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            let blob = extractSearchBlob(from: person.appleContactSnapshotJson)
+            if personExists {
+                bindText(statement, 1, person.name)
+                bindText(statement, 2, person.company)
+                bindText(statement, 3, person.role)
+                bindText(statement, 4, person.tone)
+                bindText(statement, 5, person.initials)
+                bindDate(statement, 6, person.lastContact)
+                bindText(statement, 7, person.context)
+                bindText(statement, 8, person.personal)
+                bindText(statement, 9, person.followup)
+                bindText(statement, 10, encodeTags(person.tags))
+                bindText(statement, 11, person.appleContactIdentifier)
+                bindDate(statement, 12, person.appleContactLastSyncedAt)
+                bindText(statement, 13, person.appleContactSyncChecksum)
+                bindText(statement, 14, person.appleContactSnapshotJson)
+                bindDate(statement, 15, person.updatedAt)
+                bindText(statement, 16, blob)
+                bindText(statement, 17, person.id)
+            } else {
+                bindText(statement, 1, person.id)
+                bindText(statement, 2, person.name)
+                bindText(statement, 3, person.company)
+                bindText(statement, 4, person.role)
+                bindText(statement, 5, person.tone)
+                bindText(statement, 6, person.initials)
+                bindDate(statement, 7, person.capturedAt)
+                bindDate(statement, 8, person.lastContact)
+                sqlite3_bind_int(statement, 9, person.isFavorite ? 1 : 0)
+                bindText(statement, 10, person.context)
+                bindText(statement, 11, person.personal)
+                bindText(statement, 12, person.followup)
+                bindText(statement, 13, encodeTags(person.tags))
+                bindText(statement, 14, person.appleContactIdentifier)
+                bindDate(statement, 15, person.appleContactLastSyncedAt)
+                bindText(statement, 16, person.appleContactSyncChecksum)
+                bindText(statement, 17, person.appleContactSnapshotJson)
+                bindDate(statement, 18, person.updatedAt)
+                bindText(statement, 19, blob)
+            }
+            let stepResult = sqlite3_step(statement)
+            if stepResult == SQLITE_DONE {
+                replaceTags(for: person.id, tags: person.tags)
+            }
+        }
+        sqlite3_finalize(statement)
+    }
+
     /// Fetch a person by their Apple Contacts identifier.
     ///
     /// Used during contact sync to find existing records.
@@ -487,6 +581,11 @@ class DatabaseManager {
 
     func deletePerson(id: String) {
         softDeletePerson(id: id)
+    }
+
+    func softDeletePerson(appleContactIdentifier: String) {
+        guard let person = fetchPerson(appleContactIdentifier: appleContactIdentifier) else { return }
+        softDeletePerson(id: person.id)
     }
 
     private func softDeletePerson(id: String) {

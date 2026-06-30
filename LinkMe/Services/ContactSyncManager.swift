@@ -1,3 +1,4 @@
+import BackgroundTasks
 import Combine
 import Contacts
 import Foundation
@@ -51,11 +52,21 @@ struct ContactSyncStats {
     var lastSyncedAt: Date?
 }
 
+/// Resume cursor saved to UserDefaults after each batch so sync can continue after interruption.
+struct ContactSyncProgress: Codable {
+    /// Total contacts fetched at sync start.
+    var totalContacts: Int
+    /// Identifiers already processed in a previous interrupted run.
+    var processedIdentifiers: Set<String>
+    /// When the sync started.
+    var startedAt: Date
+}
+
+
 /// Manages incremental sync between LinkMe and Apple Contacts.
 ///
 /// Bidirectional sync: imports new/updated contacts into LinkMe people,
 /// and exports LinkMe person details back to Apple Contacts.
-/// Uses change history API for incremental sync on iOS 26+.
 ///
 /// - Important: Requires Contacts permission. User must grant explicit access.
 ///   Respects limited contact access (iOS 18+).
@@ -75,8 +86,9 @@ final class ContactSyncManager: ObservableObject {
 
     private let store = CNContactStore()
     private let enabledKey = "contactSyncEnabled"
+    private let progressKey = "contactSyncProgress"
+    private let historyTokenKey = "contactHistoryToken"
     private var changeHistoryTask: Task<Void, Never>?
-    private var debounceTask: Task<Void, Never>?
 
     private init() {
         let savedIsEnabled = UserDefaults.standard.bool(forKey: enabledKey)
@@ -93,8 +105,8 @@ final class ContactSyncManager: ObservableObject {
 
     /// Enables or disables Apple Contacts sync.
     ///
-    /// When enabled, starts listening to Apple Contacts changes and performs
-    /// initial sync. When disabled, stops listening and clears state.
+    /// When enabled, schedules background sync and starts listening to changes.
+    /// When disabled, stops listening and clears state.
     ///
     /// - Parameters:
     ///   - enabled: Whether to enable sync.
@@ -109,6 +121,8 @@ final class ContactSyncManager: ObservableObject {
             return
         }
 
+        scheduleBackgroundSync()
+
         Task {
             await sync()
         }
@@ -119,77 +133,220 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
-    /// Manually trigger sync if it's currently enabled.
-    ///
-    /// No-op if sync is disabled.
+    /// Manually trigger sync if currently enabled.
     func refreshIfEnabled() {
         guard isEnabled else {
             state = .off
             return
         }
 
+        if loadHistoryToken() != nil {
+            Task { await incrementalSync() }
+        } else {
+            Task { await sync() }
+        }
+    }
+
+    /// Force a full resync, discarding any saved resume checkpoint and history token.
+    func forceResync() {
+        clearProgress()
+        clearHistoryToken()
         Task {
             await sync()
         }
     }
 
-    /// Force a full resync with Apple Contacts regardless of debounce state.
-    ///
-    /// Use when user explicitly requests a manual refresh.
-    func forceResync() {
+    // MARK: - Background Tasks
+
+    /// Schedules a BGProcessingTask for a full sync pass.
+    nonisolated func scheduleBackgroundSync() {
+        let request = BGProcessingTaskRequest(identifier: "com.linkme.contact-sync")
+        request.requiresNetworkConnectivity = false
+        request.requiresExternalPower = false
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// Handles a BGProcessingTask for full contact sync.
+    nonisolated func handleBackgroundProcessingTask(_ task: BGProcessingTask) {
+        task.expirationHandler = {
+            // Progress checkpoint already saved per batch; just signal incomplete.
+            task.setTaskCompleted(success: false)
+        }
         Task {
             await sync()
+            task.setTaskCompleted(success: true)
         }
     }
+
+    /// Schedules a BGAppRefreshTask for incremental update on contact changes.
+    nonisolated func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.linkme.contact-sync-refresh")
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// Handles a BGAppRefreshTask for incremental sync using change history.
+    nonisolated func handleBackgroundRefreshTask(_ task: BGAppRefreshTask) {
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+        Task {
+            await incrementalSync()
+            task.setTaskCompleted(success: true)
+        }
+    }
+
+    // MARK: - History Token
+
+    private nonisolated func loadHistoryToken() -> Data? {
+        UserDefaults.standard.data(forKey: historyTokenKey)
+    }
+
+    private nonisolated func saveHistoryToken(_ token: Data) {
+        UserDefaults.standard.set(token, forKey: historyTokenKey)
+    }
+
+    private nonisolated func clearHistoryToken() {
+        UserDefaults.standard.removeObject(forKey: historyTokenKey)
+    }
+
+    // MARK: - Progress Checkpoint
+
+    private nonisolated func loadProgress() -> ContactSyncProgress? {
+        guard let data = UserDefaults.standard.data(forKey: progressKey) else { return nil }
+        return try? JSONDecoder().decode(ContactSyncProgress.self, from: data)
+    }
+
+    private nonisolated func saveProgress(_ progress: ContactSyncProgress) {
+        guard let data = try? JSONEncoder().encode(progress) else { return }
+        UserDefaults.standard.set(data, forKey: progressKey)
+    }
+
+    private nonisolated func clearProgress() {
+        UserDefaults.standard.removeObject(forKey: progressKey)
+    }
+
+    // MARK: - Sync
 
     private nonisolated func listenToContactChanges() async {
         let notifications = NotificationCenter.default.notifications(named: .CNContactStoreDidChange)
         for await _ in notifications {
             let isEnabledSnapshot = await MainActor.run { self.isEnabled }
             guard isEnabledSnapshot else { continue }
-
-            await MainActor.run {
-                self.debounceTask?.cancel()
-                self.debounceTask = Task {
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    guard !Task.isCancelled else { return }
-                    await self.syncTrackedContacts()
-                }
-            }
+            scheduleBackgroundRefresh()
         }
     }
 
-    private nonisolated func syncTrackedContacts() async {
-        do {
-            let trackedIds = await MainActor.run {
-                Set(DatabaseManager.shared.fetchPeople()
-                    .compactMap { $0.appleContactIdentifier })
-            }
-
-            let allContacts = try await fetchContacts()
-            let newOrChangedContacts = allContacts.filter { contact in
-                trackedIds.contains(contact.identifier) ||
-                !DatabaseManager.shared.fetchPeople()
-                    .contains { $0.appleContactIdentifier == contact.identifier }
-            }
-
-            guard !newOrChangedContacts.isEmpty else { return }
-
-            let (imported, updated) = await processBatch(newOrChangedContacts, lastSyncedAt: Date())
-
-            await MainActor.run {
-                self.stats.imported += imported
-                self.stats.updated += updated
-            }
-        } catch {
-            await MainActor.run { Task { await self.sync() } }
+    private nonisolated func incrementalSync() async {
+        guard let token = loadHistoryToken() else {
+            await sync()
+            return
         }
+
+        do {
+            try await performIncrementalSync(startingToken: token)
+        } catch let error as CNError where error.code == .changeHistoryExpired {
+            clearHistoryToken()
+            await sync()
+        } catch {
+            // Non-fatal: next BGAppRefreshTask will retry.
+        }
+    }
+
+    private nonisolated func performIncrementalSync(startingToken: Data) async throws {
+        try await Task.detached(priority: .background) {
+            let store = CNContactStore()
+            let request = CNChangeHistoryFetchRequest()
+            request.startingToken = startingToken
+            request.additionalContactKeyDescriptors = Self.contactFetchKeys()
+            request.shouldUnifyResults = true
+
+            var added: [CNContact] = []
+            var updated: [CNContact] = []
+            var deletedIds: [String] = []
+
+            let result = try ContactHistoryBridge.fetchChangeHistory(with: request, from: store)
+            while let event = result.enumerator.nextObject() {
+                if let e = event as? CNChangeHistoryAddContactEvent {
+                    added.append(e.contact)
+                } else if let e = event as? CNChangeHistoryUpdateContactEvent {
+                    updated.append(e.contact)
+                } else if let e = event as? CNChangeHistoryDeleteContactEvent {
+                    deletedIds.append(e.contactIdentifier)
+                }
+            }
+
+            let now = Date()
+            let abSession = AddressBookHelper.shared.openSession()
+            let toUpsert = (added + updated).filter { Self.hasUsefulContactData($0) }
+
+            if !toUpsert.isEmpty {
+                var importedCount = 0
+                var updatedCount = 0
+                var seen = Set<String>()
+                var people: [PersonModel] = []
+
+                for contact in toUpsert {
+                    guard !seen.contains(contact.identifier) else { continue }
+                    seen.insert(contact.identifier)
+
+                    let contactId = contact.identifier
+                    let existing = DatabaseManager.shared.fetchPerson(appleContactIdentifier: contactId)
+                    var person = existing ?? PersonModel(
+                        id: "apple-contact-\(contactId)",
+                        name: Self.displayName(for: contact),
+                        company: contact.organizationName,
+                        role: contact.jobTitle
+                    )
+
+                    if existing == nil {
+                        importedCount += 1
+                        let dates = abSession?.dates(for: contact) ?? ContactDates(createdDate: nil, modifiedDate: nil)
+                        if let d = dates.createdDate { person.capturedAt = d }
+                        if let d = dates.modifiedDate { person.updatedAt = d }
+                    } else {
+                        updatedCount += 1
+                        let dates = abSession?.dates(for: contact) ?? ContactDates(createdDate: nil, modifiedDate: nil)
+                        if let d = dates.modifiedDate { person.updatedAt = d }
+                    }
+
+                    person.name = Self.displayName(for: contact)
+                    let gi = contact.givenName.prefix(1).uppercased()
+                    let fi = contact.familyName.prefix(1).uppercased()
+                    person.initials = (gi + fi).isEmpty ? PersonModel.computeInitials(person.name) : (gi + fi)
+                    person.company = contact.organizationName
+                    person.role = contact.jobTitle
+                    person.appleContactIdentifier = contactId
+                    person.appleContactLastSyncedAt = now
+                    person.appleContactSyncChecksum = Self.contactChecksum(contact)
+                    person.appleContactSnapshotJson = Self.contactSnapshotJson(contact)
+                    person.tags = Self.mergedTags(person.tags, contact: contact)
+                    people.append(person)
+                }
+
+                DatabaseManager.shared.upsertPeople(people)
+
+                let i = importedCount
+                let u = updatedCount
+                await MainActor.run {
+                    self.stats.imported += i
+                    self.stats.updated += u
+                }
+            }
+
+            abSession?.close()
+
+            for contactId in deletedIds {
+                DatabaseManager.shared.softDeletePerson(appleContactIdentifier: contactId)
+            }
+
+            self.saveHistoryToken(result.currentHistoryToken)
+        }.value
     }
 
     /// Perform full sync with Apple Contacts.
     ///
-    /// Fetches all contacts, compares with LinkMe database, imports new/updated,
-    /// and exports LinkMe person data back to Contacts. Updates stats and state.
+    /// Resumes from UserDefaults checkpoint if a previous sync was interrupted.
+    /// Publishes live stats after every batch so PrivacyView shows real-time progress.
     nonisolated func sync() async {
         let isEnabledSnapshot = await MainActor.run { self.isEnabled }
         guard isEnabledSnapshot else {
@@ -207,26 +364,46 @@ final class ContactSyncManager: ObservableObject {
             }
 
             let contacts = try await fetchContacts()
+            var progress = loadProgress() ?? ContactSyncProgress(
+                totalContacts: contacts.count,
+                processedIdentifiers: [],
+                startedAt: Date()
+            )
+
+            let remaining = contacts.filter { !progress.processedIdentifiers.contains($0.identifier) }
+
+            // Publish total immediately before any batch starts.
+            await MainActor.run { self.stats.total = contacts.count }
+
             var nextStats = ContactSyncStats(total: contacts.count, lastSyncedAt: Date())
-
             let batchSize = 200
-            for batchStart in stride(from: 0, to: contacts.count, by: batchSize) {
-                let batchEnd = min(batchStart + batchSize, contacts.count)
-                let batch = Array(contacts[batchStart..<batchEnd])
+            let abSession = AddressBookHelper.shared.openSession()
 
-                let (imported, updated) = await processBatch(batch, lastSyncedAt: nextStats.lastSyncedAt ?? Date())
+            for batchStart in stride(from: 0, to: remaining.count, by: batchSize) {
+                let batchEnd = min(batchStart + batchSize, remaining.count)
+                let batch = Array(remaining[batchStart..<batchEnd])
+
+                let (imported, updated) = await processBatch(batch, lastSyncedAt: nextStats.lastSyncedAt ?? Date(), abSession: abSession)
                 nextStats.imported += imported
                 nextStats.updated += updated
 
-                await MainActor.run {
-                    self.stats = nextStats
-                }
+                // Save checkpoint after each batch.
+                progress.processedIdentifiers.formUnion(batch.map(\.identifier))
+                progress.totalContacts = contacts.count
+                saveProgress(progress)
+
+                await MainActor.run { self.stats = nextStats }
             }
+
+            abSession?.close()
 
             let validContactIdentifiers = Set(contacts.map(\.identifier))
             DatabaseManager.shared.deletePlaceholderContactPeople(excluding: validContactIdentifiers)
             nextStats.exported = await exportLinkedPeople(validContactIdentifiers: validContactIdentifiers)
             nextStats.stored = DatabaseManager.shared.fetchPeople().filter { $0.appleContactIdentifier != nil }.count
+
+            clearProgress()
+            if let token = CNContactStore().currentHistoryToken { saveHistoryToken(token) }
 
             await MainActor.run {
                 self.stats = nextStats
@@ -239,44 +416,12 @@ final class ContactSyncManager: ObservableObject {
         }
     }
 
-    private nonisolated func processBatch(_ contacts: [CNContact], lastSyncedAt: Date) async -> (imported: Int, updated: Int) {
-        /// Processes contacts in background task with duplicate detection and timestamp preservation.
-        ///
-        /// **Timestamp Handling (Critical):**
-        /// This method ensures that when syncing contacts from Apple Contacts, we preserve the
-        /// contact's original creation and modification dates from AddressBook (the system date
-        /// the contact was added to iPhone), NOT the current time when we insert into LinkMe's database.
-        ///
-        /// Flow:
-        /// 1. For new contacts (existing == nil):
-        ///    - Fetch AddressBook dates via AddressBookHelper.contactDates()
-        ///    - Override PersonModel.capturedAt with AddressBook.createdDate
-        ///    - Override PersonModel.updatedAt with AddressBook.modifiedDate
-        /// 2. For updated contacts (checksum mismatch):
-        ///    - Fetch AddressBook dates via AddressBookHelper.contactDates()
-        ///    - Update PersonModel.updatedAt with AddressBook.modifiedDate
-        ///    - Keep PersonModel.capturedAt unchanged (original import date)
-        /// 3. DatabaseManager.upsertPerson() persists these AddressBook dates to SQLite
-        ///    via ISO8601 formatter (timezone-aware, exact precision)
-        /// 4. PersonDetailView displays via formatDate() helper
-        ///
-        /// Result: capturedAt = when contact was added to iPhone Contacts app
-        ///         updatedAt = when contact was last modified in iPhone Contacts app
-        ///
-        /// **Duplicate Detection:**
-        /// Tracks processed identifiers to detect duplicates in a single batch.
-        /// Duplicates are logged to console and skipped (not processed twice).
-        ///
-        /// **Memory Safety:**
-        /// - All local state (processedIdentifiers) released when Task completes
-        /// - addressBookHelper is singleton reference (no strong ownership transfer)
-        /// - AddressBook CF references properly managed via takeRetainedValue()
-        /// - Each contactDates() call cleans up ABAddressBook and array references
+    private nonisolated func processBatch(_ contacts: [CNContact], lastSyncedAt: Date, abSession: ABSession?) async -> (imported: Int, updated: Int) {
         await Task.detached(priority: .background) {
             var imported = 0
             var updated = 0
             var processedIdentifiers = Set<String>()
-            let addressBookHelper = AddressBookHelper.shared
+            var peopleToUpsert: [PersonModel] = []
 
             for contact in contacts {
                 let contactId = contact.identifier
@@ -297,7 +442,7 @@ final class ContactSyncManager: ObservableObject {
 
                 if existing == nil {
                     imported += 1
-                    let contactDates = addressBookHelper.contactDates(for: contact)
+                    let contactDates = abSession?.dates(for: contact) ?? ContactDates(createdDate: nil, modifiedDate: nil)
                     if let createdDate = contactDates.createdDate {
                         person.capturedAt = createdDate
                     }
@@ -306,7 +451,7 @@ final class ContactSyncManager: ObservableObject {
                     }
                 } else if person.appleContactSyncChecksum != Self.contactChecksum(contact) {
                     updated += 1
-                    let contactDates = addressBookHelper.contactDates(for: contact)
+                    let contactDates = abSession?.dates(for: contact) ?? ContactDates(createdDate: nil, modifiedDate: nil)
                     if let modifiedDate = contactDates.modifiedDate {
                         person.updatedAt = modifiedDate
                     }
@@ -324,9 +469,10 @@ final class ContactSyncManager: ObservableObject {
                 person.appleContactSnapshotJson = Self.contactSnapshotJson(contact)
                 person.tags = Self.mergedTags(person.tags, contact: contact)
 
-                DatabaseManager.shared.upsertPerson(person)
+                peopleToUpsert.append(person)
             }
 
+            DatabaseManager.shared.upsertPeople(peopleToUpsert)
             return (imported, updated)
         }.value
     }
@@ -368,13 +514,12 @@ final class ContactSyncManager: ObservableObject {
         let people = DatabaseManager.shared.fetchPeople().filter { $0.appleContactIdentifier != nil }
         return await Task.detached(priority: .utility) {
             let store = CNContactStore()
+            let saveRequest = CNSaveRequest()
             var exported = 0
 
             for person in people {
                 guard let identifier = person.appleContactIdentifier,
-                      validContactIdentifiers.contains(identifier) else {
-                    continue
-                }
+                      validContactIdentifiers.contains(identifier) else { continue }
 
                 do {
                     let contact = try store.unifiedContact(
@@ -388,9 +533,7 @@ final class ContactSyncManager: ObservableObject {
                         ]
                     ).mutableCopy() as! CNMutableContact
 
-                    guard Self.personNeedsExport(person, to: contact) else {
-                        continue
-                    }
+                    guard Self.personNeedsExport(person, to: contact) else { continue }
 
                     let nameParts = person.name.split(separator: " ", maxSplits: 1).map(String.init)
                     contact.givenName = nameParts.first ?? person.name
@@ -398,12 +541,18 @@ final class ContactSyncManager: ObservableObject {
                     contact.organizationName = person.company
                     contact.jobTitle = person.role
 
-                    let request = CNSaveRequest()
-                    request.update(contact)
-                    try store.execute(request)
+                    saveRequest.update(contact)
                     exported += 1
                 } catch {
                     continue
+                }
+            }
+
+            if exported > 0 {
+                do {
+                    try store.execute(saveRequest)
+                } catch {
+                    return 0
                 }
             }
 
@@ -436,9 +585,7 @@ final class ContactSyncManager: ObservableObject {
             CNContactNonGregorianBirthdayKey as CNKeyDescriptor,
             CNContactDatesKey as CNKeyDescriptor,
             CNContactRelationsKey as CNKeyDescriptor,
-            CNContactImageDataAvailableKey as CNKeyDescriptor,
-            CNContactImageDataKey as CNKeyDescriptor,
-            CNContactThumbnailImageDataKey as CNKeyDescriptor
+            CNContactImageDataAvailableKey as CNKeyDescriptor
         ]
     }
 
@@ -454,13 +601,8 @@ final class ContactSyncManager: ObservableObject {
             .filter { !$0.isEmpty }
             .joined(separator: " ")
 
-        if !name.isEmpty {
-            return name
-        }
-
-        if !contact.organizationName.isEmpty {
-            return contact.organizationName
-        }
+        if !name.isEmpty { return name }
+        if !contact.organizationName.isEmpty { return contact.organizationName }
 
         if let email = contact.emailAddresses.first?.value, !String(email).isEmpty {
             return String(email)
@@ -550,12 +692,6 @@ final class ContactSyncManager: ObservableObject {
         if contact.isKeyAvailable(CNContactImageDataAvailableKey) {
             snapshot["imageDataAvailable"] = contact.imageDataAvailable
         }
-        if contact.isKeyAvailable(CNContactImageDataKey) {
-            snapshot["imageDataBase64"] = contact.imageData?.base64EncodedString() as Any
-        }
-        if contact.isKeyAvailable(CNContactThumbnailImageDataKey) {
-            snapshot["thumbnailImageDataBase64"] = contact.thumbnailImageData?.base64EncodedString() as Any
-        }
 
         guard JSONSerialization.isValidJSONObject(snapshot),
               let data = try? JSONSerialization.data(withJSONObject: snapshot, options: [.sortedKeys]),
@@ -573,10 +709,7 @@ final class ContactSyncManager: ObservableObject {
     }
 
     private nonisolated static func labeledValue(_ label: String?, value: String) -> [String: String] {
-        [
-            "label": label ?? "",
-            "value": value
-        ]
+        ["label": label ?? "", "value": value]
     }
 
     private nonisolated static func labeledPostalAddress(_ value: CNLabeledValue<CNPostalAddress>) -> [String: String] {
@@ -612,10 +745,7 @@ final class ContactSyncManager: ObservableObject {
     }
 
     private nonisolated static func labeledDateComponents(_ value: CNLabeledValue<NSDateComponents>) -> [String: Any] {
-        [
-            "label": value.label ?? "",
-            "date": dateComponents(value.value as DateComponents) ?? [:]
-        ]
+        ["label": value.label ?? "", "date": dateComponents(value.value as DateComponents) ?? [:]]
     }
 
     private nonisolated static func dateComponents(_ value: DateComponents?) -> [String: Int]? {
@@ -642,9 +772,5 @@ final class ContactSyncManager: ObservableObject {
         displayName(for: contact) != person.name ||
             contact.organizationName != person.company ||
             contact.jobTitle != person.role
-    }
-
-    private nonisolated func personSyncChecksum(_ person: PersonModel) -> String {
-        person.appleContactSyncChecksum ?? ""
     }
 }
