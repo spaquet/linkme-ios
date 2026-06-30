@@ -80,8 +80,9 @@ class AddressBookHelper {
 
                 let nameMatches = firstName == contact.givenName && lastName == contact.familyName
                 let phoneMatches = !targetPhone.isEmpty && isPhoneInRecord(record, phone: targetPhone)
+                let shouldMatch = nameMatches && (targetPhone.isEmpty || phoneMatches)
 
-                if nameMatches && phoneMatches {
+                if shouldMatch {
                     var createdDate: Date?
                     var modifiedDate: Date?
 

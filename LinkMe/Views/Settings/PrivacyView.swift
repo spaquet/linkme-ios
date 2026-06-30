@@ -9,10 +9,10 @@ struct PrivacyView: View {
     let appState: AppState
 
     /// Contact sync state and controls.
-    @StateObject private var contactSync = ContactSyncManager.shared
+    @ObservedObject private var contactSync = ContactSyncManager.shared
 
     /// Calendar access state and controls.
-    @StateObject private var calendarManager = CalendarManager.shared
+    @ObservedObject private var calendarManager = CalendarManager.shared
     @State private var cloudEnrichment = false
     @State private var lifeSignals = false
     @State private var siri = false
