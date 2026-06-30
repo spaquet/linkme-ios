@@ -5,6 +5,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.linkme.contact-sync</string>
+		<string>com.linkme.contact-sync-refresh</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>

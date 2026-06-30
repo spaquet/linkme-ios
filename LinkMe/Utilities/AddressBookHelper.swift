@@ -3,9 +3,6 @@ import AddressBook
 import Foundation
 
 /// Creation and modification timestamps for a contact.
-///
-/// The modern Contacts framework (CNContact) does not expose contact creation or modification dates.
-/// This struct holds those timestamps retrieved from the legacy AddressBook framework.
 struct ContactDates {
     /// Date the contact was created in the system address book.
     let createdDate: Date?
@@ -14,136 +11,116 @@ struct ContactDates {
     let modifiedDate: Date?
 }
 
-/// Bridge to AddressBook framework for accessing contact metadata unavailable in Contacts.
+/// Bridge to AddressBook framework for accessing contact timestamps unavailable in Contacts.
 ///
-/// The modern Contacts framework (CNContact) exposes name, email, phone, and other profile data,
-/// but omits creation and modification timestamps. LinkMe uses these timestamps to detect
-/// when a person was first added to the device (as a proxy for relationship start date).
+/// CNContact omits creation/modification timestamps. This helper opens the legacy AddressBook
+/// once per sync pass and performs lightweight per-name searches within that open reference.
 ///
-/// This helper queries the legacy AddressBook C API to retrieve those dates by matching
-/// contacts by name and phone number.
-///
-/// - Important: Requires Contacts permission (same as Contacts framework). Deprecated AddressBook
-///   APIs are used because CNContact provides no timestamp access.
+/// - Important: Requires Contacts permission. Uses deprecated AddressBook C API.
 class AddressBookHelper {
     static let shared = AddressBookHelper()
 
-    /// Fetches creation and modification dates for a contact.
+    /// Opens a session holding an AddressBook reference for batch date lookups.
     ///
-    /// **Purpose:** Extract the contact's original AddressBook timestamps (when it was added to
-    /// iPhone Contacts, when it was last modified) so that LinkMe can preserve these dates
-    /// when importing contacts. This ensures capturedAt and updatedAt reflect actual contact
-    /// history, not the time of LinkMe sync.
-    ///
-    /// **Method:**
-    /// - Queries legacy AddressBook C API (CNContact doesn't expose these dates)
-    /// - Matches contact by name + first phone number (CNContact identifier alone is insufficient)
-    /// - Extracts ABPersonCreationDateProperty and ABPersonModificationDateProperty
-    /// - Logs found dates to console for debugging
-    ///
-    /// **Thread Safety:** Safe to call from any thread (background Tasks). Core Foundation
-    /// references are properly managed via takeRetainedValue().
-    ///
-    /// **Usage in ContactSyncManager:**
-    /// - contactDates() returns ContactDates with createdDate and modifiedDate
-    /// - ContactSyncManager.processBatch() uses these to populate PersonModel.capturedAt
-    ///   and PersonModel.updatedAt before persisting to SQLite
-    /// - Result: relationship dates reflect iPhone Contacts app history, not LinkMe insertion time
-    ///
-    /// - Parameters:
-    ///   - contact: A CNContact from the modern Contacts framework.
-    /// - Returns: ContactDates with createdDate and modifiedDate if found; nil dates if not found or on error.
-    ///           If AddressBook has no dates, both fields are nil and the sync operation logs "[AddressBook] No dates found"
-    nonisolated func contactDates(for contact: CNContact) -> ContactDates {
+    /// - Returns: An open ABSession, or nil if AddressBook access fails.
+    nonisolated func openSession() -> ABSession? {
         var error: Unmanaged<CFError>?
-        guard let addressBookRef = ABAddressBookCreateWithOptions(nil, &error) else {
-            if let error = error?.takeRetainedValue() {
-                print("[AddressBook] Failed to create address book: \(error)")
+        guard let ref = ABAddressBookCreateWithOptions(nil, &error) else {
+            if let e = error?.takeRetainedValue() {
+                print("[AddressBook] Failed to open: \(e)")
             }
+            return nil
+        }
+        return ABSession(addressBook: ref.takeRetainedValue())
+    }
+}
+
+/// Holds an open AddressBook reference for the duration of a sync pass.
+///
+/// Open once via AddressBookHelper.openSession(), call dates(for:) per contact, then close().
+///
+/// - Important: Call close() when done. Retaining beyond the sync pass leaks the CF reference.
+final class ABSession: @unchecked Sendable {
+    private var addressBook: ABAddressBook?
+
+    init(addressBook: ABAddressBook) {
+        self.addressBook = addressBook
+    }
+
+    /// Looks up creation and modification dates for a contact.
+    ///
+    /// Calls ABAddressBookCopyPeopleWithName for a single lightweight search within the open
+    /// reference. Disambiguates by phone number when multiple records match the name.
+    /// Falls back to organization name when given/family name are both empty.
+    ///
+    /// - Parameters:
+    ///   - contact: A CNContact to look up.
+    /// - Returns: ContactDates with available timestamps, or nil dates if no match found.
+    func dates(for contact: CNContact) -> ContactDates {
+        guard let ab = addressBook else {
             return ContactDates(createdDate: nil, modifiedDate: nil)
         }
 
-        let addressBook = addressBookRef.takeRetainedValue()
-        guard let peopleArrayRef = ABAddressBookCopyArrayOfAllPeople(addressBook) else {
-            print("[AddressBook] No contacts found")
+        let searchName: String
+        if contact.givenName.isEmpty && contact.familyName.isEmpty {
+            searchName = contact.organizationName
+        } else {
+            searchName = [contact.givenName, contact.familyName]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
+
+        guard !searchName.isEmpty,
+              let matchesRef = ABAddressBookCopyPeopleWithName(ab, searchName as CFString) else {
             return ContactDates(createdDate: nil, modifiedDate: nil)
         }
 
-        let peopleArray = peopleArrayRef.takeRetainedValue() as [ABRecord]
+        let matches = matchesRef.takeRetainedValue() as [ABRecord]
+        guard !matches.isEmpty else {
+            return ContactDates(createdDate: nil, modifiedDate: nil)
+        }
+
         let targetPhone = contact.phoneNumbers.first?.value.stringValue ?? ""
+        let record: ABRecord?
 
-        for record in peopleArray {
-            if let firstNameRef = ABRecordCopyValue(record, kABPersonFirstNameProperty),
-               let lastNameRef = ABRecordCopyValue(record, kABPersonLastNameProperty) {
-                let firstName = (firstNameRef.takeRetainedValue() as? String) ?? ""
-                let lastName = (lastNameRef.takeRetainedValue() as? String) ?? ""
-
-                let nameMatches = firstName == contact.givenName && lastName == contact.familyName
-                let phoneMatches = !targetPhone.isEmpty && isPhoneInRecord(record, phone: targetPhone)
-                let shouldMatch = nameMatches && (targetPhone.isEmpty || phoneMatches)
-
-                if shouldMatch {
-                    var createdDate: Date?
-                    var modifiedDate: Date?
-
-                    if let createdRef = ABRecordCopyValue(record, kABPersonCreationDateProperty) {
-                        let createdValue = createdRef.takeRetainedValue()
-                        if let date = createdValue as? Date {
-                            createdDate = date
-                        }
-                    }
-
-                    if let modifiedRef = ABRecordCopyValue(record, kABPersonModificationDateProperty) {
-                        let modifiedValue = modifiedRef.takeRetainedValue()
-                        if let date = modifiedValue as? Date {
-                            modifiedDate = date
-                        }
-                    }
-
-                    if let created = createdDate, let modified = modifiedDate {
-                        print("[AddressBook] ✅ Found dates for \(firstName) \(lastName) (\(targetPhone))")
-                        print("[AddressBook]    Created: \(created.formatted(date: .abbreviated, time: .standard))")
-                        print("[AddressBook]    Modified: \(modified.formatted(date: .abbreviated, time: .standard))")
-                    }
-
-                    return ContactDates(createdDate: createdDate, modifiedDate: modifiedDate)
-                }
-            }
+        if matches.count == 1 {
+            record = matches[0]
+        } else if !targetPhone.isEmpty {
+            record = matches.first { isPhoneInRecord($0, phone: targetPhone) } ?? matches[0]
+        } else {
+            record = matches[0]
         }
 
-        print("[AddressBook] No dates found for \(contact.givenName) \(contact.familyName)")
-        return ContactDates(createdDate: nil, modifiedDate: nil)
+        guard let rec = record else {
+            return ContactDates(createdDate: nil, modifiedDate: nil)
+        }
+
+        var createdDate: Date?
+        var modifiedDate: Date?
+
+        if let ref = ABRecordCopyValue(rec, kABPersonCreationDateProperty) {
+            createdDate = ref.takeRetainedValue() as? Date
+        }
+        if let ref = ABRecordCopyValue(rec, kABPersonModificationDateProperty) {
+            modifiedDate = ref.takeRetainedValue() as? Date
+        }
+
+        return ContactDates(createdDate: createdDate, modifiedDate: modifiedDate)
     }
 
-    /// Fetches only the creation date for a contact.
-    ///
-    /// Convenience method for callers that only need the created date.
-    /// - Parameters:
-    ///   - contact: A CNContact from the modern Contacts framework.
-    /// - Returns: The contact creation date if found; nil otherwise.
-    nonisolated func creationDate(for contact: CNContact) -> Date? {
-        contactDates(for: contact).createdDate
+    /// Releases the AddressBook CF reference.
+    func close() {
+        addressBook = nil
     }
 
-    /// Checks if a phone number exists in an AddressBook record.
-    ///
-    /// Helper to match contacts by phone during the address book search.
-    /// - Parameters:
-    ///   - record: An ABRecord from the AddressBook framework.
-    ///   - phone: Phone number string to search for.
-    /// - Returns: true if the phone number exists in the record.
-    private nonisolated func isPhoneInRecord(_ record: ABRecord, phone: String) -> Bool {
-        if let phoneRef = ABRecordCopyValue(record, kABPersonPhoneProperty) {
-            let phoneValue = phoneRef.takeRetainedValue()
-            if let phoneMultiValue = phoneValue as? ABMultiValue {
-                for i in 0..<ABMultiValueGetCount(phoneMultiValue) {
-                    if let recordPhone = ABMultiValueCopyValueAtIndex(phoneMultiValue, i) {
-                        let recordPhoneValue = recordPhone.takeRetainedValue() as? String ?? ""
-                        if recordPhoneValue == phone {
-                            return true
-                        }
-                    }
-                }
+    private func isPhoneInRecord(_ record: ABRecord, phone: String) -> Bool {
+        guard let phoneRef = ABRecordCopyValue(record, kABPersonPhoneProperty) else { return false }
+        let phoneValue = phoneRef.takeRetainedValue()
+        guard let phoneMultiValue = phoneValue as? ABMultiValue else { return false }
+        for i in 0..<ABMultiValueGetCount(phoneMultiValue) {
+            if let recordPhone = ABMultiValueCopyValueAtIndex(phoneMultiValue, i) {
+                let val = recordPhone.takeRetainedValue() as? String ?? ""
+                if val == phone { return true }
             }
         }
         return false
