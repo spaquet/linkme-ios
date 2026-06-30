@@ -80,7 +80,8 @@ class DatabaseManager {
             apple_contact_last_synced_at DATETIME,
             apple_contact_sync_checksum TEXT,
             apple_contact_snapshot_json TEXT,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            search_blob TEXT
         );
         """
 
@@ -226,12 +227,12 @@ class DatabaseManager {
         """
 
         let peopleFTS = """
-        CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, content=people, content_rowid=rowid);
+        CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, search_blob, content=people, content_rowid=rowid);
         """
 
         let peopleFTSTriggerInsert = """
         CREATE TRIGGER IF NOT EXISTS people_fts_insert AFTER INSERT ON people BEGIN
-          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.rowid, new.name, new.company, new.role);
+          INSERT INTO people_fts(rowid, name, company, role, search_blob) VALUES (new.rowid, new.name, new.company, new.role, new.search_blob);
         END;
         """
 
@@ -244,7 +245,7 @@ class DatabaseManager {
         let peopleFTSTriggerUpdate = """
         CREATE TRIGGER IF NOT EXISTS people_fts_update AFTER UPDATE ON people BEGIN
           DELETE FROM people_fts WHERE rowid = old.rowid;
-          INSERT INTO people_fts(rowid, name, company, role) VALUES (new.rowid, new.name, new.company, new.role);
+          INSERT INTO people_fts(rowid, name, company, role, search_blob) VALUES (new.rowid, new.name, new.company, new.role, new.search_blob);
         END;
         """
 
@@ -328,8 +329,8 @@ class DatabaseManager {
     ///   - person: The person to insert.
     func insertPerson(_ person: PersonModel) {
         let sql = """
-        INSERT INTO people (id, name, company, role, tone, initials, captured_at, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO people (id, name, company, role, tone, initials, captured_at, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, search_blob)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         var statement: OpaquePointer?
@@ -350,6 +351,7 @@ class DatabaseManager {
             bindDate(statement, 14, person.appleContactLastSyncedAt)
             bindText(statement, 15, person.appleContactSyncChecksum)
             bindText(statement, 16, person.appleContactSnapshotJson)
+            bindText(statement, 17, extractSearchBlob(from: person.appleContactSnapshotJson))
 
             if sqlite3_step(statement) == SQLITE_DONE {
                 replaceTags(for: person.id, tags: person.tags)
@@ -396,19 +398,20 @@ class DatabaseManager {
                 last_contact = ?, context = ?, personal = ?, followup = ?,
                 tags = ?, apple_contact_identifier = ?,
                 apple_contact_last_synced_at = ?, apple_contact_sync_checksum = ?, apple_contact_snapshot_json = ?,
-                updated_at = ?
+                updated_at = ?, search_blob = ?
             WHERE id = ?
             """
         } else {
             sql = """
-            INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO people (id, name, company, role, tone, initials, captured_at, last_contact, is_favorite, context, personal, followup, tags, apple_contact_identifier, apple_contact_last_synced_at, apple_contact_sync_checksum, apple_contact_snapshot_json, updated_at, search_blob)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
         }
 
 
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
+            let blob = extractSearchBlob(from: person.appleContactSnapshotJson)
             if personExists {
                 bindText(statement, 1, person.name)
                 bindText(statement, 2, person.company)
@@ -425,7 +428,8 @@ class DatabaseManager {
                 bindText(statement, 13, person.appleContactSyncChecksum)
                 bindText(statement, 14, person.appleContactSnapshotJson)
                 bindDate(statement, 15, person.updatedAt)
-                bindText(statement, 16, person.id)
+                bindText(statement, 16, blob)
+                bindText(statement, 17, person.id)
             } else {
                 bindText(statement, 1, person.id)
                 bindText(statement, 2, person.name)
@@ -445,6 +449,7 @@ class DatabaseManager {
                 bindText(statement, 16, person.appleContactSyncChecksum)
                 bindText(statement, 17, person.appleContactSnapshotJson)
                 bindDate(statement, 18, person.updatedAt)
+                bindText(statement, 19, blob)
             }
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
@@ -631,9 +636,18 @@ class DatabaseManager {
 
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedSearch.isEmpty {
-            joins.append("INNER JOIN people_fts fts ON fts.rowid = p.id")
+            // Build prefix-match FTS5 query: "jo sm" → `"jo"* "sm"*`
+            let ftsQuery = trimmedSearch
+                .components(separatedBy: .whitespaces)
+                .filter { !$0.isEmpty }
+                .map { token in
+                    let escaped = token.replacingOccurrences(of: "\"", with: "\"\"")
+                    return "\"\(escaped)\"*"
+                }
+                .joined(separator: " ")
+            joins.append("INNER JOIN people_fts fts ON fts.rowid = p.rowid")
             predicates.append("people_fts MATCH ?")
-            bindValues.append(trimmedSearch)
+            bindValues.append(ftsQuery)
         }
 
         return (
@@ -825,7 +839,9 @@ class DatabaseManager {
         addColumnIfMissing(table: "people", column: "apple_contact_snapshot_json", definition: "TEXT")
         addColumnIfMissing(table: "people", column: "initials", definition: "TEXT DEFAULT ''")
         addColumnIfMissing(table: "people", column: "updated_at", definition: "DATETIME")
+        addColumnIfMissing(table: "people", column: "search_blob", definition: "TEXT")
         backfillInitials()
+        migratePeopleFTS()
     }
 
     private func migrateCardsSchema() {
@@ -886,8 +902,101 @@ class DatabaseManager {
 
     private func rebuildPeopleFTS() {
         executeSQL("DELETE FROM people_fts;")
-        let sql = "INSERT INTO people_fts(rowid, name, company, role) SELECT id, name, company, role FROM people WHERE deleted_at IS NULL;"
+        let sql = "INSERT INTO people_fts(rowid, name, company, role, search_blob) SELECT rowid, name, company, role, search_blob FROM people WHERE deleted_at IS NULL;"
         executeSQL(sql)
+    }
+
+    /// Extracts searchable text (phones, emails, city) from the Apple Contact snapshot JSON blob.
+    private func extractSearchBlob(from snapshotJson: String?) -> String? {
+        guard let json = snapshotJson,
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+
+        var parts: [String] = []
+
+        if let phones = obj["phoneNumbers"] as? [[String: Any]] {
+            parts += phones.compactMap { $0["value"] as? String }
+        }
+        if let emails = obj["emailAddresses"] as? [[String: Any]] {
+            parts += emails.compactMap { $0["value"] as? String }
+        }
+        if let addresses = obj["postalAddresses"] as? [[String: Any]] {
+            for addr in addresses {
+                for key in ["city", "state", "country", "street"] {
+                    if let val = addr[key] as? String, !val.isEmpty { parts.append(val) }
+                }
+            }
+        }
+
+        let blob = parts.joined(separator: " ")
+        return blob.isEmpty ? nil : blob
+    }
+
+    /// Migrates FTS schema to include search_blob for phone/email/location search.
+    private func migratePeopleFTS() {
+        // Check if FTS already has search_blob by attempting a query against it
+        let checkSQL = "SELECT search_blob FROM people_fts LIMIT 1"
+        var stmt: OpaquePointer?
+        let alreadyMigrated = sqlite3_prepare_v2(db, checkSQL, -1, &stmt, nil) == SQLITE_OK
+        sqlite3_finalize(stmt)
+        if alreadyMigrated { return }
+
+        // Drop old triggers and FTS table, recreate with search_blob
+        executeSQL("DROP TRIGGER IF EXISTS people_fts_insert;")
+        executeSQL("DROP TRIGGER IF EXISTS people_fts_delete;")
+        executeSQL("DROP TRIGGER IF EXISTS people_fts_update;")
+        executeSQL("DROP TABLE IF EXISTS people_fts;")
+
+        executeSQL("CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, company, role, search_blob, content=people, content_rowid=rowid);")
+        executeSQL("""
+        CREATE TRIGGER IF NOT EXISTS people_fts_insert AFTER INSERT ON people BEGIN
+          INSERT INTO people_fts(rowid, name, company, role, search_blob) VALUES (new.rowid, new.name, new.company, new.role, new.search_blob);
+        END;
+        """)
+        executeSQL("""
+        CREATE TRIGGER IF NOT EXISTS people_fts_delete AFTER DELETE ON people BEGIN
+          DELETE FROM people_fts WHERE rowid = old.rowid;
+        END;
+        """)
+        executeSQL("""
+        CREATE TRIGGER IF NOT EXISTS people_fts_update AFTER UPDATE ON people BEGIN
+          DELETE FROM people_fts WHERE rowid = old.rowid;
+          INSERT INTO people_fts(rowid, name, company, role, search_blob) VALUES (new.rowid, new.name, new.company, new.role, new.search_blob);
+        END;
+        """)
+
+        backfillSearchBlob()
+        rebuildPeopleFTS()
+    }
+
+    private func backfillSearchBlob() {
+        let fetchSQL = "SELECT rowid, apple_contact_snapshot_json FROM people WHERE deleted_at IS NULL AND search_blob IS NULL AND apple_contact_snapshot_json IS NOT NULL;"
+        var stmt: OpaquePointer?
+        var rows: [(Int64, String)] = []
+
+        if sqlite3_prepare_v2(db, fetchSQL, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let rowid = sqlite3_column_int64(stmt, 0)
+                if let ptr = sqlite3_column_text(stmt, 1) {
+                    rows.append((rowid, String(cString: ptr)))
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        for (rowid, json) in rows {
+            guard let blob = extractSearchBlob(from: json) else { continue }
+            let updateSQL = "UPDATE people SET search_blob = ? WHERE rowid = ?;"
+            var updateStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, updateSQL, -1, &updateStmt, nil) == SQLITE_OK {
+                bindText(updateStmt, 1, blob)
+                sqlite3_bind_int64(updateStmt, 2, rowid)
+                sqlite3_step(updateStmt)
+            }
+            sqlite3_finalize(updateStmt)
+        }
     }
 
     private func replaceTags(for personId: String, tags: [String]) {
